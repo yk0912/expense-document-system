@@ -1,0 +1,149 @@
+import { Readable } from "node:stream";
+
+import { google, type drive_v3 } from "googleapis";
+
+import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
+import { toGoogleErrorMessage } from "@/lib/google/errors";
+
+const FOLDER_MIME = "application/vnd.google-apps.folder";
+const folderCache = createMemoryTtlCache<string>(30 * 60 * 1000);
+
+export type UploadedDriveFile = {
+  id: string;
+  name: string;
+  webViewLink: string;
+};
+
+function driveClient(auth: Parameters<typeof google.drive>[0]["auth"]) {
+  return google.drive({ version: "v3", auth });
+}
+
+async function findChildFolder(
+  drive: drive_v3.Drive,
+  parentId: string,
+  name: string,
+): Promise<string | null> {
+  const response = await drive.files.list({
+    q: [
+      `'${parentId}' in parents`,
+      `name = '${name.replaceAll("'", "\\'")}'`,
+      `mimeType = '${FOLDER_MIME}'`,
+      "trashed = false",
+    ].join(" and "),
+    fields: "files(id, name)",
+    pageSize: 1,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+
+  return response.data.files?.[0]?.id ?? null;
+}
+
+async function createFolder(
+  drive: drive_v3.Drive,
+  parentId: string,
+  name: string,
+): Promise<string> {
+  const response = await drive.files.create({
+    requestBody: {
+      name,
+      mimeType: FOLDER_MIME,
+      parents: [parentId],
+    },
+    fields: "id",
+    supportsAllDrives: true,
+  });
+
+  if (!response.data.id) {
+    throw new Error(`フォルダ「${name}」の作成に失敗しました。`);
+  }
+
+  return response.data.id;
+}
+
+export async function ensureYearMonthFolder(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  rootFolderId: string,
+  year: string,
+  month: string,
+): Promise<string> {
+  const monthKey = `${rootFolderId}:${year}:${month}`;
+  const cachedMonth = folderCache.get(monthKey);
+  if (cachedMonth) {
+    return cachedMonth;
+  }
+
+  const drive = driveClient(auth);
+
+  try {
+    const yearKey = `${rootFolderId}:${year}`;
+    const yearId =
+      folderCache.get(yearKey) ??
+      (await findChildFolder(drive, rootFolderId, year)) ??
+      (await createFolder(drive, rootFolderId, year));
+    folderCache.set(yearKey, yearId);
+
+    const monthId =
+      (await findChildFolder(drive, yearId, month)) ??
+      (await createFolder(drive, yearId, month));
+    folderCache.set(monthKey, monthId);
+    return monthId;
+  } catch (error) {
+    throw new Error(toGoogleErrorMessage(error, "Driveフォルダの準備に失敗しました。"));
+  }
+}
+
+export async function uploadReceiptImage(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  folderId: string,
+  fileName: string,
+  image: Buffer,
+): Promise<UploadedDriveFile> {
+  const drive = driveClient(auth);
+
+  try {
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [folderId],
+        mimeType: "image/jpeg",
+      },
+      media: {
+        mimeType: "image/jpeg",
+        body: Readable.from(image),
+      },
+      fields: "id, name, webViewLink",
+      supportsAllDrives: true,
+    });
+
+    const id = response.data.id;
+    const name = response.data.name ?? fileName;
+    if (!id) {
+      throw new Error("Driveへの画像保存に失敗しました。");
+    }
+
+    return {
+      id,
+      name,
+      webViewLink:
+        response.data.webViewLink ?? `https://drive.google.com/file/d/${id}/view`,
+    };
+  } catch (error) {
+    throw new Error(toGoogleErrorMessage(error, "Driveへの画像保存に失敗しました。"));
+  }
+}
+
+export async function deleteDriveFile(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  fileId: string,
+): Promise<void> {
+  const drive = driveClient(auth);
+  try {
+    await drive.files.delete({
+      fileId,
+      supportsAllDrives: true,
+    });
+  } catch {
+    // 登録失敗時の後始末。削除できなくても登録自体は失敗のまま返す。
+  }
+}
