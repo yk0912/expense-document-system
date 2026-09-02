@@ -1,6 +1,10 @@
 "use client";
 
 import { applyEntryMode, summarizeReceipt } from "@/lib/accounting/analysis-mapper";
+import {
+  resolveVendorKind,
+  usesDiningVendorLabel,
+} from "@/lib/accounting/vendor-kind";
 import { dateInputValue } from "@/lib/accounting/date";
 import { ReceiptItemEditor } from "@/components/receipts/ReceiptItemEditor";
 import {
@@ -44,8 +48,23 @@ export function ReceiptReviewCard({
           <Input
             className="h-11"
             value={receipt.vendorName}
-            onChange={(event) => update({ vendorName: event.target.value })}
+            onChange={(event) => {
+              const vendorName = event.target.value;
+              update({
+                vendorName,
+                vendorKind: resolveVendorKind(
+                  vendorName,
+                  receipt.storeAddress,
+                  receipt.vendorKind,
+                ),
+              });
+            }}
           />
+          {usesDiningVendorLabel(receipt.vendorKind, receipt.vendorName) ? (
+            <span className="block text-xs leading-5 text-muted-foreground">
+              「飲食店」と表示されます
+            </span>
+          ) : null}
         </label>
 
         {receipt.storeAddress ? (

@@ -5,6 +5,7 @@ import { toAnalyzeResponse } from "@/lib/accounting/analysis-mapper";
 import { fetchCategoryMaster } from "@/lib/accounting/category-master";
 import { GeminiReceiptAnalyzer } from "@/lib/ai/gemini-receipt-analyzer";
 import { storeReceiptImage } from "@/lib/images/receipt-image-store";
+import { FORMAT_SHEET_NAME } from "@/lib/settings/types";
 import { resolveAppSettings } from "@/lib/settings/server";
 
 export const maxDuration = 60;
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     const settings = await resolveAppSettings(request);
     const { categories, warning } = await fetchCategoryMaster({
       spreadsheetId: settings.spreadsheetId,
-      summarySheetName: settings.sheetName,
+      summarySheetName: FORMAT_SHEET_NAME,
       categorySheetName: settings.categorySheetName,
     });
     const image = Buffer.from(await file.arrayBuffer());

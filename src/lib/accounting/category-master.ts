@@ -288,7 +288,8 @@ export async function fetchCategoryMaster(options?: {
       findSheetTitle(titles, categorySheetName, ["経費区分"]) ??
       categorySheetName;
     const resolvedSummary =
-      findSheetTitle(titles, summarySheetName, ["経費集計"]) ?? summarySheetName;
+      findSheetTitle(titles, summarySheetName, ["フォーマット", "経費集計"]) ??
+      summarySheetName;
 
     const [categoryResponse, summaryResponse] = await Promise.all([
       sheets.spreadsheets.values.get({

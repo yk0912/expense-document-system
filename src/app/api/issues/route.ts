@@ -61,7 +61,7 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: toGoogleErrorMessage(error, "読み取り不良一覧の取得に失敗しました。"),
+        error: toGoogleErrorMessage(error, "登録不良一覧の取得に失敗しました。"),
         rows: [],
       },
       { status: 500 },
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       const folderId = await ensureNamedFolder(
         auth,
         settings.driveFolderId,
-        "読み取り不良",
+        "登録不良",
       );
       uploaded = await uploadReceiptImage(
         auth,
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json(
       {
-        error: toGoogleErrorMessage(error, "読み取り不良の報告に失敗しました。"),
+        error: toGoogleErrorMessage(error, "登録不良の報告に失敗しました。"),
       },
       { status: 500 },
     );

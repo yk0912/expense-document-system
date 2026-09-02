@@ -157,7 +157,7 @@ export function NewReceiptScreen() {
 
     setError(null);
     setIsRegistering(true);
-    setProgress({ label: "経費集計シートへ転記しています…", percent: 8 });
+    setProgress({ label: "スプレッドシートへ転記しています…", percent: 8 });
     const registerTimer = window.setInterval(() => {
       setProgress((current) => {
         if (!current || current.percent >= 90) {
@@ -167,7 +167,7 @@ export function NewReceiptScreen() {
         return {
           label:
             nextPercent < 45
-              ? "経費集計シートへ転記しています…"
+              ? "スプレッドシートへ転記しています…"
               : "画像をDriveに保存しています…",
           percent: nextPercent,
         };
@@ -188,6 +188,7 @@ export function NewReceiptScreen() {
             assignedStore: receipt.assignedStore,
             transactionDate: receipt.transactionDate,
             vendorName: receipt.vendorName,
+            vendorKind: receipt.vendorKind,
             totalAmount: receipt.totalAmount,
             lineTotal: receipt.lineTotal,
             priceBasis: receipt.priceBasis,
@@ -250,7 +251,7 @@ export function NewReceiptScreen() {
         </h1>
         <p className="text-sm leading-6 text-muted-foreground">
           {registeredAll
-            ? "Driveに画像を保存し、経費集計シートへ転記しました。"
+            ? "Driveに画像を保存し、スプレッドシートへ転記しました。"
             : analysis
               ? "間違っている箇所だけ直してください。飲食店は合計、スーパー等は商品ごとに区分してください。"
               : "撮影すると自動で読み取ります。1枚に複数枚写っていても構いません。"}
@@ -305,7 +306,11 @@ export function NewReceiptScreen() {
                 {result.vendorName ? `（${result.vendorName}）` : ""}
                 {result.ok ? " を登録しました" : " は未完了です"}
               </p>
-              {result.rowNumber ? <p>経費集計 {result.rowNumber}行目</p> : null}
+              {result.rowNumber ? (
+                <p>
+                  {result.sheetTitle || "登録シート"} {result.rowNumber}行目
+                </p>
+              ) : null}
               {result.fileName ? (
                 result.fileUrl ? (
                   <p>
@@ -381,7 +386,7 @@ export function NewReceiptScreen() {
               disabled={isRegistering}
               onClick={() => void handleReportIssues()}
             >
-              読み取り不良を報告
+              登録不良を報告
             </Button>
           ) : null}
           <Button

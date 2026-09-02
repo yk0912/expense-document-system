@@ -1,7 +1,12 @@
+import { DEFAULT_USERS_SHEET_NAME } from "@/lib/auth/constants";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
 import { createGoogleOAuthClient } from "@/lib/google/auth";
 import { readJsonFile, writeJsonFile } from "@/lib/google/drive";
-import { parseDriveFolderId, parseSpreadsheetId } from "@/lib/settings/parse";
+import {
+  parseDriveFolderId,
+  parseSpreadsheetId,
+  spreadsheetUrlFromId,
+} from "@/lib/settings/parse";
 import {
   EMPTY_SETTINGS,
   SETTINGS_FILE_NAME,
@@ -11,14 +16,18 @@ import {
 const settingsCache = createMemoryTtlCache<AppSettings>(60 * 1000);
 
 function envSettings(): AppSettings {
+  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim() ?? "";
   return {
-    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID?.trim() ?? "",
+    spreadsheetId,
+    spreadsheetUrl: spreadsheetUrlFromId(spreadsheetId),
     sheetName: process.env.GOOGLE_SHEET_NAME?.trim() || EMPTY_SETTINGS.sheetName,
     categorySheetName:
       process.env.GOOGLE_CATEGORY_SHEET_NAME?.trim() ||
       EMPTY_SETTINGS.categorySheetName,
     driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID?.trim() ?? "",
     issueSheetName: EMPTY_SETTINGS.issueSheetName,
+    usersSpreadsheetId: spreadsheetId,
+    usersSheetName: DEFAULT_USERS_SHEET_NAME,
   };
 }
 
@@ -29,17 +38,36 @@ function pickFilled(
   if (!overlay) {
     return base;
   }
+  const spreadsheetId =
+    parseSpreadsheetId(overlay.spreadsheetId ?? "") ||
+    parseSpreadsheetId(overlay.spreadsheetUrl ?? "") ||
+    base.spreadsheetId;
   return {
-    spreadsheetId: overlay.spreadsheetId?.trim() || base.spreadsheetId,
+    spreadsheetId,
+    spreadsheetUrl:
+      overlay.spreadsheetUrl?.trim() ||
+      spreadsheetUrlFromId(spreadsheetId) ||
+      base.spreadsheetUrl,
     sheetName: overlay.sheetName?.trim() || base.sheetName,
     categorySheetName: overlay.categorySheetName?.trim() || base.categorySheetName,
     driveFolderId: overlay.driveFolderId?.trim() || base.driveFolderId,
     issueSheetName: overlay.issueSheetName?.trim() || base.issueSheetName,
+    usersSpreadsheetId:
+      parseSpreadsheetId(overlay.usersSpreadsheetId ?? "") || base.usersSpreadsheetId,
+    usersSheetName: overlay.usersSheetName?.trim() || base.usersSheetName,
   };
 }
 
 function headerValue(request: Request, name: string): string {
-  return request.headers.get(name)?.trim() ?? "";
+  const raw = request.headers.get(name)?.trim() ?? "";
+  if (!raw) {
+    return "";
+  }
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }
 
 export function settingsFromHeaders(request: Request): Partial<AppSettings> {
@@ -95,13 +123,20 @@ export async function saveAppSettings(next: AppSettings): Promise<AppSettings> {
   if (!next.driveFolderId) {
     throw new Error("親フォルダIDが未設定です。システム設定で指定してください。");
   }
+  const spreadsheetId =
+    parseSpreadsheetId(next.spreadsheetId) ||
+    parseSpreadsheetId(next.spreadsheetUrl);
   const normalized: AppSettings = {
-    spreadsheetId: parseSpreadsheetId(next.spreadsheetId),
+    spreadsheetId,
+    spreadsheetUrl: next.spreadsheetUrl.trim() || spreadsheetUrlFromId(spreadsheetId),
     sheetName: next.sheetName.trim() || EMPTY_SETTINGS.sheetName,
     categorySheetName:
       next.categorySheetName.trim() || EMPTY_SETTINGS.categorySheetName,
     driveFolderId: parseDriveFolderId(next.driveFolderId),
-    issueSheetName: next.issueSheetName.trim() || EMPTY_SETTINGS.issueSheetName,
+    issueSheetName: EMPTY_SETTINGS.issueSheetName,
+    usersSpreadsheetId:
+      parseSpreadsheetId(next.usersSpreadsheetId) || spreadsheetId,
+    usersSheetName: next.usersSheetName.trim() || DEFAULT_USERS_SHEET_NAME,
   };
   await writeJsonFile(auth, normalized.driveFolderId, SETTINGS_FILE_NAME, normalized);
   settingsCache.set(normalized.driveFolderId, normalized);

@@ -13,6 +13,7 @@ export const registerReceiptSchema = z.object({
   assignedStore: z.enum(STORES),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   vendorName: z.string().trim().min(1),
+  vendorKind: z.enum(["dining", "retail", "unknown"]).optional(),
   totalAmount: z.number().nullable(),
   lineTotal: z.number().nullable().optional(),
   priceBasis: z.enum(["tax_included", "tax_excluded"]),

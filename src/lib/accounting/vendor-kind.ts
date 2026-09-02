@@ -7,6 +7,8 @@ const RETAIL_PATTERN =
 const DINING_PATTERN =
   /居酒屋|レストラン|ファミレス|食堂|定食|カフェ|喫茶|珈琲|コーヒー|焼肉|寿司|すし|ラーメン|うどん|そば|丼|バー|酒場|ダイニング|ビストロ|パティスリー|洋菓子|ケーキ|パン屋|ベーカリー|飲食|御飲食代|ご飲食|食事代|サイゼリヤ|ガスト|ジョナサン|デニーズ|オリーブの丘|目利き|銀次|ル[・･]?ジャルダン|スターバックス|ドトール|タリーズ|コメダ|大戸屋|やよい軒|すき家|松屋|吉野家/;
 
+export const DINING_VENDOR_LABEL = "飲食店";
+
 const DINING_CATEGORY_HINTS = [
   "会議費",
   "交際費",
@@ -33,6 +35,25 @@ export function resolveVendorKind(
     return hintedKind;
   }
   return "unknown";
+}
+
+export function usesDiningVendorLabel(
+  vendorKind: VendorKind,
+  vendorName?: string | null,
+): boolean {
+  if (vendorKind === "dining") {
+    return true;
+  }
+  return DINING_PATTERN.test(vendorName ?? "");
+}
+
+export function toSheetVendorName(
+  vendorKind: VendorKind,
+  vendorName: string,
+): string {
+  return usesDiningVendorLabel(vendorKind, vendorName)
+    ? DINING_VENDOR_LABEL
+    : vendorName;
 }
 
 export function resolveEntryMode(

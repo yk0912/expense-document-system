@@ -42,6 +42,27 @@ function cell(row: string[] | undefined, index: number | undefined): string {
   return row?.[index]?.trim() ?? "";
 }
 
+async function findExistingIssueSheet(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  title: string,
+): Promise<{ sheetId: number; title: string } | null> {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties(sheetId,title)",
+  });
+  const existing = meta.data.sheets?.find(
+    (sheet) => sheet.properties?.title === title,
+  );
+  if (existing?.properties?.sheetId == null || !existing.properties.title) {
+    return null;
+  }
+  return {
+    sheetId: existing.properties.sheetId,
+    title: existing.properties.title,
+  };
+}
+
 async function findOrCreateIssueSheet(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string,
@@ -111,10 +132,17 @@ export async function listIssueRows(
   auth: SheetsAuth,
   spreadsheetId: string,
   sheetName = ISSUE_SHEET_NAME,
+  options: { createIfMissing?: boolean } = {},
 ): Promise<IssueSheetRow[]> {
   const sheets = sheetsClient(auth);
   try {
-    const { title } = await findOrCreateIssueSheet(sheets, spreadsheetId, sheetName);
+    const sheet = options.createIfMissing
+      ? await findOrCreateIssueSheet(sheets, spreadsheetId, sheetName)
+      : await findExistingIssueSheet(sheets, spreadsheetId, sheetName);
+    if (!sheet) {
+      return [];
+    }
+    const { title } = sheet;
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${quotedSheet(title)}!A1:H5000`,
@@ -159,7 +187,7 @@ export async function listIssueRows(
       ];
     });
   } catch (error) {
-    throw new Error(toGoogleErrorMessage(error, "読み取り不良シートの取得に失敗しました。"));
+    throw new Error(toGoogleErrorMessage(error, "登録不良シートの取得に失敗しました。"));
   }
 }
 
@@ -204,6 +232,6 @@ export async function appendIssueRows(
       },
     });
   } catch (error) {
-    throw new Error(toGoogleErrorMessage(error, "読み取り不良の記録に失敗しました。"));
+    throw new Error(toGoogleErrorMessage(error, "登録不良の記録に失敗しました。"));
   }
 }

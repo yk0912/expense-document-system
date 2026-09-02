@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import {
   loadLocalSettings,
   saveLocalSettings,
+  settingsHeaders,
 } from "@/lib/settings/client";
 import { EMPTY_SETTINGS, type AppSettings } from "@/lib/settings/types";
 
@@ -23,11 +24,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const local = loadLocalSettings();
     void fetch("/api/settings", {
-      headers: {
-        "x-app-spreadsheet-id": local.spreadsheetId,
-        "x-app-sheet-name": local.sheetName,
-        "x-app-drive-folder-id": local.driveFolderId,
-      },
+      headers: settingsHeaders(local),
     })
       .then(async (response) => {
         if (!response.ok) {
@@ -38,10 +35,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .then((remote) => {
         const merged: AppSettings = {
           spreadsheetId: local.spreadsheetId || remote.spreadsheetId,
+          spreadsheetUrl: local.spreadsheetUrl || remote.spreadsheetUrl,
           sheetName: local.sheetName || remote.sheetName,
           categorySheetName: local.categorySheetName || remote.categorySheetName,
           driveFolderId: local.driveFolderId || remote.driveFolderId,
           issueSheetName: local.issueSheetName || remote.issueSheetName,
+          usersSpreadsheetId: local.usersSpreadsheetId || remote.usersSpreadsheetId,
+          usersSheetName: local.usersSheetName || remote.usersSheetName,
         };
         saveLocalSettings(merged);
         setSettingsState(merged);

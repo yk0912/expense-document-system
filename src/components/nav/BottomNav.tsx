@@ -21,7 +21,7 @@ const TABS = [
   },
   {
     href: "/issues",
-    label: "不良報告",
+    label: "登録不良",
     icon: TriangleAlert,
     match: (path: string) => path.startsWith("/issues"),
   },

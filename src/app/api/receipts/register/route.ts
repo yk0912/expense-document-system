@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sumAmountsByCategory } from "@/lib/accounting/category-mapper";
+import { toSheetVendorName } from "@/lib/accounting/vendor-kind";
 import {
   buildSharedReceiptFileName,
   yearMonthFromDate,
@@ -27,6 +28,8 @@ import {
   consumeReceiptImage,
   getReceiptImage,
 } from "@/lib/images/receipt-image-store";
+import { requireSession } from "@/lib/auth/guard";
+import { buildUserReceiptSheetName } from "@/lib/settings/receipt-sheet";
 import { resolveAppSettings } from "@/lib/settings/server";
 import type { RegisterReceiptResult, RegisterResponse } from "@/types/receipt";
 
@@ -46,11 +49,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: credentialIssue }, { status: 500 });
     }
 
+    const session = await requireSession(request);
+    if (session instanceof NextResponse) {
+      return session;
+    }
+
     const auth = createGoogleOAuthClient();
     const settings = await resolveAppSettings(request);
     const spreadsheetId = settings.spreadsheetId;
     const driveFolderId = settings.driveFolderId;
-    const sheetName = settings.sheetName;
+    const sheetName = buildUserReceiptSheetName(settings.sheetName, session.name);
 
     if (!auth || !spreadsheetId) {
       return NextResponse.json(
@@ -94,7 +102,10 @@ export async function POST(request: Request) {
         write: {
           assignedStore: receipt.assignedStore,
           transactionDate: receipt.transactionDate,
-          vendorName: receipt.vendorName,
+          vendorName: toSheetVendorName(
+            receipt.vendorKind ?? "unknown",
+            receipt.vendorName,
+          ),
           priceBasis: receipt.priceBasis,
           categoryAmounts: sumAmountsByCategory(receipt.items),
           totalAmount,
@@ -159,6 +170,7 @@ export async function POST(request: Request) {
             receiptIndex: item.receiptIndex,
             vendorName: item.vendorName,
             ok: false,
+            sheetTitle: null,
             rowNumber: null,
             fileName: null,
             fileUrl: null,
@@ -190,6 +202,7 @@ export async function POST(request: Request) {
             receiptIndex: item.receiptIndex,
             vendorName: item.vendorName,
             ok: false,
+            sheetTitle: null,
             rowNumber: null,
             fileName: null,
             fileUrl: null,
@@ -230,6 +243,7 @@ export async function POST(request: Request) {
             receiptIndex: item.receiptIndex,
             vendorName: item.vendorName,
             ok: false,
+            sheetTitle: null,
             rowNumber: null,
             fileName: null,
             fileUrl: null,
@@ -249,6 +263,7 @@ export async function POST(request: Request) {
       receiptIndex: item.receiptIndex,
       vendorName: item.vendorName,
       ok: true,
+      sheetTitle: layout.title,
       rowNumber: writtenRows[index]?.rowNumber ?? null,
       fileName: uploaded.name,
       fileUrl: uploaded.webViewLink,

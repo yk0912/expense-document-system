@@ -61,6 +61,7 @@ export type RegisterReceiptResult = {
   receiptIndex: number;
   vendorName: string | null;
   ok: boolean;
+  sheetTitle: string | null;
   rowNumber: number | null;
   fileName: string | null;
   fileUrl: string | null;

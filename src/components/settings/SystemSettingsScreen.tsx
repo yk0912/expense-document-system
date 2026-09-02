@@ -1,23 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppSettings } from "@/components/settings/SettingsProvider";
+import { ADMIN_USER_NAME } from "@/lib/auth/constants";
 import { appFetch } from "@/lib/settings/client";
-import { parseDriveFolderId } from "@/lib/settings/parse";
+import { parseSpreadsheetId, spreadsheetUrlFromId } from "@/lib/settings/parse";
 import type { AppSettings } from "@/lib/settings/types";
+
+type PublicUser = { name: string; role: "admin" | "user" };
+type EditableUser = PublicUser & { clientId: string };
+
+function createClientId() {
+  return crypto.randomUUID();
+}
+
+function toEditableUsers(users: PublicUser[]): EditableUser[] {
+  return users.map((user) => ({ ...user, clientId: createClientId() }));
+}
 
 export function SystemSettingsScreen() {
   const { settings, setSettings } = useAppSettings();
   const [password, setPassword] = useState("");
-  const [driveFolderId, setDriveFolderId] = useState<string | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const [spreadsheetId, setSpreadsheetId] = useState<string | null>(null);
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState<string | null>(null);
+  const [sheetName, setSheetName] = useState<string | null>(null);
+  const [usersSpreadsheetId, setUsersSpreadsheetId] = useState<string | null>(null);
+  const [usersSheetName, setUsersSheetName] = useState<string | null>(null);
+  const [users, setUsers] = useState<EditableUser[] | null>(null);
+  const [newUserName, setNewUserName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const driveFolderIdValue = driveFolderId ?? settings.driveFolderId;
+  const [unlocked, setUnlocked] = useState(false);
+
+  useEffect(() => {
+    if (!password) {
+      setUnlocked(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetch("/api/settings/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+        signal: controller.signal,
+      })
+        .then((response) => {
+          setUnlocked(response.ok);
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+          setUnlocked(false);
+        });
+    }, 200);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [password]);
+
+  useEffect(() => {
+    void fetch("/api/auth/users")
+      .then(async (response) => (await response.json()) as { users?: PublicUser[] })
+      .then((payload) => {
+        setUsers(
+          toEditableUsers(payload.users ?? [{ name: ADMIN_USER_NAME, role: "admin" }]),
+        );
+      });
+  }, []);
+
+  const spreadsheetIdValue = spreadsheetId ?? settings.spreadsheetId;
+  const spreadsheetUrlValue = spreadsheetUrl ?? settings.spreadsheetUrl;
+  const sheetNameValue = sheetName ?? settings.sheetName;
+  const usersSpreadsheetIdValue = usersSpreadsheetId ?? settings.usersSpreadsheetId;
+  const usersSheetNameValue = usersSheetName ?? settings.usersSheetName;
 
   const handleSave = async () => {
     setError(null);
@@ -29,7 +91,11 @@ export function SystemSettingsScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           password,
-          driveFolderId: parseDriveFolderId(driveFolderIdValue),
+          spreadsheetId: parseSpreadsheetId(spreadsheetIdValue || spreadsheetUrlValue),
+          spreadsheetUrl: spreadsheetUrlValue || spreadsheetUrlFromId(spreadsheetIdValue),
+          sheetName: sheetNameValue,
+          usersSpreadsheetId: parseSpreadsheetId(usersSpreadsheetIdValue),
+          usersSheetName: usersSheetNameValue,
         }),
       });
       const payload = (await response.json()) as AppSettings & { error?: string };
@@ -37,8 +103,31 @@ export function SystemSettingsScreen() {
         throw new Error(payload.error ?? "保存に失敗しました。");
       }
       setSettings(payload);
-      setDriveFolderId(null);
-      setUnlocked(true);
+      setSpreadsheetId(null);
+      setSpreadsheetUrl(null);
+      setSheetName(null);
+      setUsersSpreadsheetId(null);
+      setUsersSheetName(null);
+      if (users) {
+        const usersResponse = await appFetch("/api/auth/users", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            password,
+            users: users.map(({ name, role }) => ({ name, role })),
+          }),
+        });
+        const usersPayload = (await usersResponse.json()) as {
+          users?: PublicUser[];
+          error?: string;
+        };
+        if (!usersResponse.ok) {
+          throw new Error(usersPayload.error ?? "ユーザーの保存に失敗しました。");
+        }
+        setUsers(
+          usersPayload.users ? toEditableUsers(usersPayload.users) : users,
+        );
+      }
       setSaved(true);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "保存に失敗しました。");
@@ -52,39 +141,178 @@ export function SystemSettingsScreen() {
       <header className="space-y-1">
         <p className="text-sm text-muted-foreground">設定</p>
         <h1 className="text-2xl font-semibold tracking-tight">システム設定</h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          レシート画像と読み取り不良の写真を置くGoogleドライブの親フォルダを指定します。変更にはパスワードが必要です。
-        </p>
       </header>
 
       <label className="block space-y-1">
-        <span className="text-xs text-muted-foreground">パスワード</span>
+        <span className="text-xs text-muted-foreground">ロック解除パスワード</span>
         <Input
           className="h-11"
           type="password"
           value={password}
           onChange={(event) => {
             setPassword(event.target.value);
-            setUnlocked(Boolean(event.target.value));
             setSaved(false);
           }}
           autoComplete="current-password"
         />
       </label>
 
-      <label className="block space-y-1">
-        <span className="text-xs text-muted-foreground">親フォルダIDまたはURL</span>
-        <Input
-          className="h-11"
-          value={driveFolderIdValue}
-          disabled={!unlocked && Boolean(settings.driveFolderId)}
-          onChange={(event) => {
-            setDriveFolderId(event.target.value);
-            setSaved(false);
-          }}
-          autoComplete="off"
-        />
-      </label>
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <h2 className="text-sm font-medium">書き込み先スプレッドシート</h2>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">スプレッドシートID</span>
+          <Input
+            className="h-11"
+            value={spreadsheetIdValue}
+            disabled={!unlocked}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSpreadsheetId(value);
+              setSpreadsheetUrl(spreadsheetUrlFromId(value));
+              setSaved(false);
+            }}
+            autoComplete="off"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">スプレッドシートURL</span>
+          <Input
+            className="h-11"
+            value={spreadsheetUrlValue}
+            disabled={!unlocked}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSpreadsheetUrl(value);
+              setSpreadsheetId(parseSpreadsheetId(value));
+              setSaved(false);
+            }}
+            autoComplete="off"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">シート名</span>
+          <Input
+            className="h-11"
+            value={sheetNameValue}
+            disabled={!unlocked}
+            onChange={(event) => {
+              setSheetName(event.target.value);
+              setSaved(false);
+            }}
+            autoComplete="off"
+          />
+          <span className="block text-xs leading-5 text-muted-foreground">
+            登録時は「フォーマット」をコピーし、この名前のあとに _ユーザー名 を付けたシートへ書き込みます。
+          </span>
+        </label>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <h2 className="text-sm font-medium">ユーザー・パスワードの記録先</h2>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">スプレッドシートIDまたはURL</span>
+          <Input
+            className="h-11"
+            value={usersSpreadsheetIdValue}
+            disabled={!unlocked}
+            onChange={(event) => {
+              setUsersSpreadsheetId(parseSpreadsheetId(event.target.value));
+              setSaved(false);
+            }}
+            autoComplete="off"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">シート名</span>
+          <Input
+            className="h-11"
+            value={usersSheetNameValue}
+            disabled={!unlocked}
+            onChange={(event) => {
+              setUsersSheetName(event.target.value);
+              setSaved(false);
+            }}
+          />
+        </label>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <h2 className="text-sm font-medium">ログインユーザー</h2>
+        <ul className="space-y-2">
+          {(users ?? []).map((user) => (
+            <li key={user.clientId} className="flex gap-2">
+              <Input
+                className="h-11"
+                value={user.name}
+                disabled={!unlocked}
+                onChange={(event) => {
+                  const nextName = event.target.value;
+                  setUsers(
+                    (users ?? []).map((item) =>
+                      item.clientId === user.clientId
+                        ? {
+                            ...item,
+                            name: nextName,
+                            role:
+                              nextName === ADMIN_USER_NAME || item.role === "admin"
+                                ? "admin"
+                                : "user",
+                          }
+                        : item,
+                    ),
+                  );
+                  setSaved(false);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                disabled={!unlocked || (user.role === "admin" && (users ?? []).filter((item) => item.role === "admin").length < 2)}
+                onClick={() => {
+                  setUsers((users ?? []).filter((item) => item.clientId !== user.clientId));
+                  setSaved(false);
+                }}
+              >
+                削除
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <div className="flex gap-2">
+          <Input
+            className="h-11"
+            value={newUserName}
+            disabled={!unlocked}
+            placeholder="新しいユーザー名"
+            onChange={(event) => setNewUserName(event.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            disabled={!unlocked || !newUserName.trim()}
+            onClick={() => {
+              const name = newUserName.trim();
+              if (!name || (users ?? []).some((user) => user.name === name)) {
+                return;
+              }
+              setUsers([
+                ...(users ?? []),
+                {
+                  clientId: createClientId(),
+                  name,
+                  role: name === ADMIN_USER_NAME ? "admin" : "user",
+                },
+              ]);
+              setNewUserName("");
+              setSaved(false);
+            }}
+          >
+            追加
+          </Button>
+        </div>
+      </section>
 
       {error ? (
         <p className="whitespace-pre-wrap text-sm text-destructive">{error}</p>
@@ -94,7 +322,7 @@ export function SystemSettingsScreen() {
       <Button
         type="button"
         className="h-14 w-full text-base"
-        disabled={saving || !driveFolderIdValue.trim()}
+        disabled={saving || !unlocked}
         onClick={() => void handleSave()}
       >
         {saving ? "保存中…" : "保存"}

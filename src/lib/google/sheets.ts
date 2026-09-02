@@ -12,6 +12,7 @@ import {
 } from "@/lib/accounting/sheet-column-resolver";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
 import { toGoogleErrorMessage } from "@/lib/google/errors";
+import { FORMAT_SHEET_NAME } from "@/lib/settings/types";
 import type { Store } from "@/types/receipt";
 
 type SheetsAuth = Parameters<typeof google.sheets>[0]["auth"];
@@ -53,6 +54,80 @@ function sheetsClient(auth: SheetsAuth) {
 
 function quotedSheet(name: string): string {
   return `'${name.replaceAll("'", "''")}'`;
+}
+
+type SheetRef = {
+  title: string;
+  sheetId: number;
+};
+
+async function listSheets(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+): Promise<SheetRef[]> {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties(sheetId,title)",
+  });
+  return (
+    meta.data.sheets
+      ?.map((sheet) => ({
+        title: sheet.properties?.title ?? "",
+        sheetId: sheet.properties?.sheetId,
+      }))
+      .filter((sheet): sheet is SheetRef =>
+        Boolean(sheet.title) && typeof sheet.sheetId === "number",
+      ) ?? []
+  );
+}
+
+async function ensureUserReceiptSheet(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  targetTitle: string,
+  formatTitle = FORMAT_SHEET_NAME,
+): Promise<SheetRef> {
+  const titles = await listSheets(sheets, spreadsheetId);
+  const existing = titles.find((sheet) => sheet.title === targetTitle);
+  if (existing) {
+    return existing;
+  }
+
+  const format = titles.find((sheet) => sheet.title === formatTitle);
+  if (!format) {
+    throw new Error(
+      `「${formatTitle}」シートが見つかりません。書き込み先ブックに用意してください。`,
+    );
+  }
+
+  try {
+    const created = await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            duplicateSheet: {
+              sourceSheetId: format.sheetId,
+              newSheetName: targetTitle,
+            },
+          },
+        ],
+      },
+    });
+    const props = created.data.replies?.[0]?.duplicateSheet?.properties;
+    if (props?.sheetId == null || !props.title) {
+      throw new Error(`「${targetTitle}」シートの作成に失敗しました。`);
+    }
+    return { sheetId: props.sheetId, title: props.title };
+  } catch (error) {
+    const raced = (await listSheets(sheets, spreadsheetId)).find(
+      (sheet) => sheet.title === targetTitle,
+    );
+    if (raced) {
+      return raced;
+    }
+    throw error;
+  }
 }
 
 function layoutCacheKey(spreadsheetId: string, preferredTitle: string): string {
@@ -128,26 +203,12 @@ async function loadSheetLayout(
     return cached;
   }
 
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: "sheets.properties(sheetId,title)",
-  });
-  const titles =
-    meta.data.sheets
-      ?.map((sheet) => ({
-        title: sheet.properties?.title ?? "",
-        sheetId: sheet.properties?.sheetId,
-      }))
-      .filter((sheet) => sheet.title && sheet.sheetId !== undefined) ?? [];
+  const matched = (await listSheets(sheets, spreadsheetId)).find(
+    (sheet) => sheet.title === preferredTitle,
+  );
 
-  const matched =
-    titles.find((sheet) => sheet.title === preferredTitle) ??
-    titles.find((sheet) => sheet.title.includes("経費集計")) ??
-    titles[0];
-
-  const sheetId = matched?.sheetId;
-  if (!matched || sheetId == null) {
-    throw new Error("経費集計シートが見つかりません。");
+  if (!matched) {
+    throw new Error(`「${preferredTitle}」シートが見つかりません。`);
   }
 
   const headerResponse = await sheets.spreadsheets.values.get({
@@ -159,13 +220,13 @@ async function loadSheetLayout(
     (row) => row.map(toStringCell),
   );
   if (headerRows.length === 0) {
-    throw new Error("経費集計シートが空です。");
+    throw new Error(`「${matched.title}」シートが空です。`);
   }
 
   const headerRowIndex = findHeaderRowIndex(headerRows);
   const layout: SheetLayout = {
     title: matched.title,
-    sheetId,
+    sheetId: matched.sheetId,
     headerRowIndex,
     columns: resolveSummaryColumns(resolveHeaderLabels(headerRows, headerRowIndex)),
   };
@@ -321,6 +382,7 @@ export async function appendReceiptRows(
   const sheets = sheetsClient(auth);
 
   try {
+    await ensureUserReceiptSheet(sheets, spreadsheetId, preferredTitle);
     let layout = await loadSheetLayout(sheets, spreadsheetId, preferredTitle);
     const remapWrites = (current = layout) =>
       receipts.map((receipt) => {

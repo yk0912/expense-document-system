@@ -24,11 +24,17 @@ export function saveLocalSettings(settings: AppSettings) {
 }
 
 export function settingsHeaders(settings: AppSettings): HeadersInit {
-  return {
-    "x-app-spreadsheet-id": settings.spreadsheetId,
-    "x-app-sheet-name": settings.sheetName,
-    "x-app-drive-folder-id": settings.driveFolderId,
-  };
+  const headers: Record<string, string> = {};
+  if (settings.spreadsheetId) {
+    headers["x-app-spreadsheet-id"] = encodeURIComponent(settings.spreadsheetId);
+  }
+  if (settings.sheetName) {
+    headers["x-app-sheet-name"] = encodeURIComponent(settings.sheetName);
+  }
+  if (settings.driveFolderId) {
+    headers["x-app-drive-folder-id"] = encodeURIComponent(settings.driveFolderId);
+  }
+  return headers;
 }
 
 export async function appFetch(input: RequestInfo | URL, init: RequestInit = {}) {

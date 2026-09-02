@@ -4,8 +4,9 @@ import { AppShell } from "@/components/nav/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "経費レシート登録",
+  title: "レシまる",
   description: "レシートを撮影して経費を登録します",
+  applicationName: "レシまる",
 };
 
 export const viewport: Viewport = {

@@ -180,9 +180,9 @@ export function IssueReportScreen() {
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-6">
       <header className="space-y-1">
         <p className="text-sm text-muted-foreground">報告</p>
-        <h1 className="text-2xl font-semibold tracking-tight">読み取り不良報告</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">登録不良報告</h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          読み取れなかった項目を選んで送ると、写真と内容が登録先ブックの「読み取り不良」シートに残ります。開発者がステータスを改修完了にすると、下の一覧で確認できます。
+          読み取れなかった項目を選んで送ると、写真と内容が書き込み先ブックの「登録不良」シートに残ります。開発者がステータスを改修完了にすると、下の一覧で確認できます。
         </p>
       </header>
 
@@ -249,7 +249,7 @@ export function IssueReportScreen() {
               </select>
             </label>
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">読み取り不良だった項目</p>
+              <p className="text-xs text-muted-foreground">登録不良だった項目</p>
               <div className="flex flex-wrap gap-2">
                 {receipt.failedFields.map((key) => (
                   <button
@@ -308,7 +308,7 @@ export function IssueReportScreen() {
       </Button>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">報告一覧</h2>
+        <h2 className="text-lg font-semibold">登録不良シート</h2>
         {loading ? (
           <p className="text-sm text-muted-foreground">読み込み中…</p>
         ) : rows.length === 0 ? (
