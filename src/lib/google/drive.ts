@@ -61,6 +61,108 @@ async function createFolder(
   return response.data.id;
 }
 
+export async function ensureNamedFolder(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  parentId: string,
+  name: string,
+): Promise<string> {
+  const cacheKey = `${parentId}:${name}`;
+  const cached = folderCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const drive = driveClient(auth);
+  try {
+    const id =
+      (await findChildFolder(drive, parentId, name)) ??
+      (await createFolder(drive, parentId, name));
+    folderCache.set(cacheKey, id);
+    return id;
+  } catch (error) {
+    throw new Error(toGoogleErrorMessage(error, "Driveフォルダの準備に失敗しました。"));
+  }
+}
+
+async function findChildFile(
+  drive: drive_v3.Drive,
+  parentId: string,
+  name: string,
+): Promise<string | null> {
+  const response = await drive.files.list({
+    q: [
+      `'${parentId}' in parents`,
+      `name = '${name.replaceAll("'", "\\'")}'`,
+      "trashed = false",
+    ].join(" and "),
+    fields: "files(id, name)",
+    pageSize: 1,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  return response.data.files?.[0]?.id ?? null;
+}
+
+export async function readJsonFile<T>(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  folderId: string,
+  fileName: string,
+): Promise<T | null> {
+  const drive = driveClient(auth);
+  const fileId = await findChildFile(drive, folderId, fileName);
+  if (!fileId) {
+    return null;
+  }
+  const response = await drive.files.get(
+    {
+      fileId,
+      alt: "media",
+      supportsAllDrives: true,
+    },
+    { responseType: "text" },
+  );
+  const raw = typeof response.data === "string" ? response.data : String(response.data);
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeJsonFile(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  folderId: string,
+  fileName: string,
+  data: unknown,
+): Promise<void> {
+  const drive = driveClient(auth);
+  const body = JSON.stringify(data, null, 2);
+  const existingId = await findChildFile(drive, folderId, fileName);
+  const media = {
+    mimeType: "application/json",
+    body,
+  };
+
+  if (existingId) {
+    await drive.files.update({
+      fileId: existingId,
+      media,
+      supportsAllDrives: true,
+    });
+    return;
+  }
+
+  await drive.files.create({
+    requestBody: {
+      name: fileName,
+      parents: [folderId],
+      mimeType: "application/json",
+    },
+    media,
+    supportsAllDrives: true,
+  });
+}
+
 export async function ensureYearMonthFolder(
   auth: Parameters<typeof google.drive>[0]["auth"],
   rootFolderId: string,

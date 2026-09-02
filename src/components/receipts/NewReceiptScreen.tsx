@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { ProgressBar } from "@/components/receipts/ProgressBar";
 import { ReceiptCapture } from "@/components/receipts/ReceiptCapture";
@@ -12,6 +13,9 @@ import {
   compressReceiptImage,
   type CompressedReceiptImage,
 } from "@/lib/images/compress";
+import { saveIssueDraft } from "@/lib/issues/draft";
+import { receiptsHaveIssueFields } from "@/lib/issues/fields";
+import { appFetch } from "@/lib/settings/client";
 import type {
   AnalyzeResponse,
   RegisterReceiptResult,
@@ -24,6 +28,7 @@ function canRegister(receipts: ReviewReceipt[]): boolean {
 }
 
 export function NewReceiptScreen() {
+  const router = useRouter();
   const [image, setImage] = useState<CompressedReceiptImage | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -38,7 +43,7 @@ export function NewReceiptScreen() {
   const analyzeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    void fetch("/api/receipts/categories").catch(() => undefined);
+    void appFetch("/api/receipts/categories").catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -91,7 +96,7 @@ export function NewReceiptScreen() {
         "image",
         new File([target.blob], "receipt.jpg", { type: target.mimeType }),
       );
-      const response = await fetch("/api/receipts/analyze", {
+      const response = await appFetch("/api/receipts/analyze", {
         method: "POST",
         body: formData,
         signal: controller.signal,
@@ -194,7 +199,7 @@ export function NewReceiptScreen() {
           })),
         }),
       );
-      const response = await fetch("/api/receipts/register", {
+      const response = await appFetch("/api/receipts/register", {
         method: "POST",
         body: formData,
       });
@@ -223,6 +228,14 @@ export function NewReceiptScreen() {
       setIsRegistering(false);
       setProgress(null);
     }
+  };
+
+  const handleReportIssues = async () => {
+    if (!analysis) {
+      return;
+    }
+    await saveIssueDraft({ image, analysis });
+    router.push("/issues");
   };
 
   const registeredAll =
@@ -360,6 +373,17 @@ export function NewReceiptScreen() {
                 ? "登録"
                 : "未入力があるため登録できません"}
           </Button>
+          {receiptsHaveIssueFields(analysis.receipts) ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-14 w-full text-base"
+              disabled={isRegistering}
+              onClick={() => void handleReportIssues()}
+            >
+              読み取り不良を報告
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -381,7 +405,7 @@ export function NewReceiptScreen() {
       {progress ? (
         <>
           <div className="h-24" />
-          <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="fixed inset-x-0 z-50 border-t border-border bg-background/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm bottom-[calc(4rem+env(safe-area-inset-bottom))] pb-3">
             <div className="mx-auto w-full max-w-md">
               <ProgressBar label={progress.label} percent={progress.percent} />
             </div>

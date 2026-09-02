@@ -225,17 +225,28 @@ function categoryCacheKey(
   return `${spreadsheetId}\t${categorySheetName}\t${summarySheetName}\theader-v2`;
 }
 
-export async function fetchCategoryMaster(): Promise<CategoryFetchResult> {
+export async function fetchCategoryMaster(options?: {
+  spreadsheetId?: string;
+  summarySheetName?: string;
+  categorySheetName?: string;
+}): Promise<CategoryFetchResult> {
   const credentialIssue = describeGoogleCredentialIssue();
   if (credentialIssue) {
     return { categories: [], warning: credentialIssue };
   }
 
   const auth = createGoogleOAuthClient();
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim();
+  const spreadsheetId =
+    options?.spreadsheetId?.trim() ||
+    process.env.GOOGLE_SPREADSHEET_ID?.trim();
   const categorySheetName =
-    process.env.GOOGLE_CATEGORY_SHEET_NAME ?? "経費区分の説明";
-  const summarySheetName = process.env.GOOGLE_SHEET_NAME ?? "経費集計";
+    options?.categorySheetName?.trim() ||
+    process.env.GOOGLE_CATEGORY_SHEET_NAME ||
+    "経費区分の説明";
+  const summarySheetName =
+    options?.summarySheetName?.trim() ||
+    process.env.GOOGLE_SHEET_NAME ||
+    "経費集計";
 
   if (!auth || !spreadsheetId) {
     return {

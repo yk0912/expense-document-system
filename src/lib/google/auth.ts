@@ -9,7 +9,6 @@ export function describeGoogleCredentialIssue(): string | null {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   const refreshToken = readRefreshToken();
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim();
 
   if (!clientId || !clientSecret || !refreshToken) {
     return "Google認証情報が未設定のため、経費区分を取得できませんでした。";
@@ -21,10 +20,6 @@ export function describeGoogleCredentialIssue(): string | null {
 
   if (refreshToken.startsWith("ya29.")) {
     return "GOOGLE_REFRESH_TOKEN に access_token が入っています。右側の refresh_token（1// で始まる値）を入れて、開発サーバーを再起動してください。";
-  }
-
-  if (!spreadsheetId) {
-    return "GOOGLE_SPREADSHEET_ID が未設定のため、経費区分を取得できませんでした。";
   }
 
   return null;

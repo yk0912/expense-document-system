@@ -5,6 +5,7 @@ import { toAnalyzeResponse } from "@/lib/accounting/analysis-mapper";
 import { fetchCategoryMaster } from "@/lib/accounting/category-master";
 import { GeminiReceiptAnalyzer } from "@/lib/ai/gemini-receipt-analyzer";
 import { storeReceiptImage } from "@/lib/images/receipt-image-store";
+import { resolveAppSettings } from "@/lib/settings/server";
 
 export const maxDuration = 60;
 
@@ -43,7 +44,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { categories, warning } = await fetchCategoryMaster();
+    const settings = await resolveAppSettings(request);
+    const { categories, warning } = await fetchCategoryMaster({
+      spreadsheetId: settings.spreadsheetId,
+      summarySheetName: settings.sheetName,
+      categorySheetName: settings.categorySheetName,
+    });
     const image = Buffer.from(await file.arrayBuffer());
     const analyzer = new GeminiReceiptAnalyzer();
     const analysis = await analyzer.analyze(image, mimeType, categories);

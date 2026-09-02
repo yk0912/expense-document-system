@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { LiveCamera } from "@/components/receipts/LiveCamera";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export function ReceiptCapture({ disabled, onFile }: ReceiptCaptureProps) {
   const [liveOpen, setLiveOpen] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
-  const takeFile = (file: File) => {
+  const takeFile = useCallback((file: File) => {
     const key = `${file.name}-${file.size}-${file.lastModified}`;
     if (lastFileKeyRef.current === key) {
       return;
@@ -33,7 +33,7 @@ export function ReceiptCapture({ disabled, onFile }: ReceiptCaptureProps) {
     lastFileKeyRef.current = key;
     setHint(null);
     onFile(file);
-  };
+  }, [onFile]);
 
   const handleLibraryChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,7 +64,7 @@ export function ReceiptCapture({ disabled, onFile }: ReceiptCaptureProps) {
       window.removeEventListener("focus", recover);
       document.removeEventListener("visibilitychange", recover);
     };
-  }, []);
+  }, [takeFile]);
 
   const handleCameraClick = () => {
     if (canUseLiveCamera()) {

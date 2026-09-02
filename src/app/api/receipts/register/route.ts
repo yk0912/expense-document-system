@@ -27,6 +27,7 @@ import {
   consumeReceiptImage,
   getReceiptImage,
 } from "@/lib/images/receipt-image-store";
+import { resolveAppSettings } from "@/lib/settings/server";
 import type { RegisterReceiptResult, RegisterResponse } from "@/types/receipt";
 
 export const maxDuration = 60;
@@ -46,19 +47,20 @@ export async function POST(request: Request) {
     }
 
     const auth = createGoogleOAuthClient();
-    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim();
-    const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
-    const sheetName = process.env.GOOGLE_SHEET_NAME?.trim() ?? "経費集計";
+    const settings = await resolveAppSettings(request);
+    const spreadsheetId = settings.spreadsheetId;
+    const driveFolderId = settings.driveFolderId;
+    const sheetName = settings.sheetName;
 
     if (!auth || !spreadsheetId) {
       return NextResponse.json(
-        { error: "Google認証またはスプレッドシートIDが未設定です。" },
+        { error: "登録先のスプレッドシートが未設定です。登録先設定で指定してください。" },
         { status: 500 },
       );
     }
     if (!driveFolderId) {
       return NextResponse.json(
-        { error: "GOOGLE_DRIVE_FOLDER_ID が未設定です。" },
+        { error: "親フォルダIDが未設定です。システム設定で指定してください。" },
         { status: 500 },
       );
     }

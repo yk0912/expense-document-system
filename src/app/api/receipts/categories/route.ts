@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { fetchCategoryMaster } from "@/lib/accounting/category-master";
+import { resolveAppSettings } from "@/lib/settings/server";
 
 export const maxDuration = 30;
 
-export async function GET() {
-  const result = await fetchCategoryMaster();
+export async function GET(request: Request) {
+  const settings = await resolveAppSettings(request);
+  const result = await fetchCategoryMaster({
+    spreadsheetId: settings.spreadsheetId,
+    summarySheetName: settings.sheetName,
+    categorySheetName: settings.categorySheetName,
+  });
   return NextResponse.json({
     ok: result.categories.length > 0,
     count: result.categories.length,
