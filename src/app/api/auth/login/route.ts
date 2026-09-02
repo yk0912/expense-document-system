@@ -11,6 +11,8 @@ import {
 import { listAppUsers } from "@/lib/auth/users";
 import { resolveAppSettings } from "@/lib/settings/server";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const payloadSchema = z.object({
@@ -35,8 +37,8 @@ export async function POST(request: Request) {
     }
     if (user.role === "admin") {
       const password = body.password ?? "";
-      const expected = user.password || getAdminPassword();
-      if (!passwordsMatch(password, expected) && !passwordsMatch(password, getAdminPassword())) {
+      const expected = user.password || (await getAdminPassword());
+      if (!passwordsMatch(password, expected) && !passwordsMatch(password, await getAdminPassword())) {
         return NextResponse.json(
           { error: "パスワードが違います。" },
           { status: 401 },

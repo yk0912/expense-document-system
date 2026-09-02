@@ -1,10 +1,9 @@
 import { SESSION_COOKIE, type SessionUser } from "@/lib/auth/constants";
-import { envVar } from "@/lib/env";
 
 const encoder = new TextEncoder();
 
 function sessionSecret(): string {
-  return envVar("GOOGLE_CLIENT_SECRET") || "expense-document-system-session";
+  return process.env.GOOGLE_CLIENT_SECRET?.trim() || "expense-document-system-session";
 }
 
 function toBase64Url(bytes: ArrayBuffer | Uint8Array): string {

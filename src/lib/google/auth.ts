@@ -1,11 +1,12 @@
 import { google } from "googleapis";
 
-import { envVar } from "@/lib/env";
+import { loadServerEnv } from "@/lib/env";
 
-export function describeGoogleCredentialIssue(): string | null {
-  const clientId = envVar("GOOGLE_CLIENT_ID");
-  const clientSecret = envVar("GOOGLE_CLIENT_SECRET");
-  const refreshToken = envVar("GOOGLE_REFRESH_TOKEN");
+export async function describeGoogleCredentialIssue(): Promise<string | null> {
+  const env = await loadServerEnv();
+  const clientId = env.googleClientId;
+  const clientSecret = env.googleClientSecret;
+  const refreshToken = env.googleRefreshToken;
 
   if (!clientId || !clientSecret || !refreshToken) {
     return "Google認証情報が未設定のため、経費区分を取得できませんでした。";
@@ -22,10 +23,11 @@ export function describeGoogleCredentialIssue(): string | null {
   return null;
 }
 
-export function createGoogleOAuthClient() {
-  const clientId = envVar("GOOGLE_CLIENT_ID");
-  const clientSecret = envVar("GOOGLE_CLIENT_SECRET");
-  const refreshToken = envVar("GOOGLE_REFRESH_TOKEN");
+export async function createGoogleOAuthClient() {
+  const env = await loadServerEnv();
+  const clientId = env.googleClientId;
+  const clientSecret = env.googleClientSecret;
+  const refreshToken = env.googleRefreshToken;
 
   if (!clientId || !clientSecret || !refreshToken) {
     return null;

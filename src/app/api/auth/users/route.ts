@@ -8,6 +8,8 @@ import { listAppUsers, publicUsers, saveAppUsers } from "@/lib/auth/users";
 import { parseSpreadsheetId } from "@/lib/settings/parse";
 import { resolveAppSettings } from "@/lib/settings/server";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const saveSchema = z.object({
@@ -47,7 +49,7 @@ export async function PUT(request: Request) {
   }
   try {
     const body = saveSchema.parse(await request.json());
-    if (!passwordsMatch(body.password, getAdminPassword())) {
+    if (!passwordsMatch(body.password, await getAdminPassword())) {
       return NextResponse.json({ error: "パスワードが違います。" }, { status: 401 });
     }
     const settings = await resolveAppSettings(request);

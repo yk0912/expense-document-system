@@ -5,7 +5,7 @@ import {
   geminiReceiptAnalysisSchema,
   geminiResponseJsonSchema,
 } from "@/lib/ai/schema";
-import { envVar } from "@/lib/env";
+import { loadServerEnv } from "@/lib/env";
 import type { CategoryMasterItem } from "@/types/receipt";
 
 function buildPrompt(categories: CategoryMasterItem[]): string {
@@ -83,11 +83,14 @@ function parseThinkingLevel(raw: string | undefined): ThinkingLevel {
   }
 }
 
-function thinkingConfigForModel(model: string): ThinkingConfig | undefined {
+function thinkingConfigForModel(
+  model: string,
+  thinkingLevel: string,
+): ThinkingConfig | undefined {
   const name = model.toLowerCase();
   if (name.includes("gemini-3")) {
     return {
-      thinkingLevel: parseThinkingLevel(envVar("GEMINI_THINKING_LEVEL")),
+      thinkingLevel: parseThinkingLevel(thinkingLevel),
       includeThoughts: false,
     };
   }
@@ -106,14 +109,15 @@ export class GeminiReceiptAnalyzer implements ReceiptAnalyzer {
     mimeType: string,
     categories: CategoryMasterItem[],
   ) {
-    const apiKey = envVar("GEMINI_API_KEY");
+    const env = await loadServerEnv();
+    const apiKey = env.geminiApiKey;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY が未設定です。.env.local に設定してください。");
     }
 
-    const model = envVar("GEMINI_MODEL") || "gemini-3.5-flash-lite";
+    const model = env.geminiModel || "gemini-3.5-flash-lite";
     const client = new GoogleGenAI({ apiKey });
-    const thinkingConfig = thinkingConfigForModel(model);
+    const thinkingConfig = thinkingConfigForModel(model, env.geminiThinkingLevel);
     const response = await client.models.generateContent({
       model,
       contents: [

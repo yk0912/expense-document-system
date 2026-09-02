@@ -10,6 +10,8 @@ import { sanitizeFileToken, toCompactDate } from "@/lib/accounting/filename";
 import { resolveAppSettings } from "@/lib/settings/server";
 import { ISSUE_STATUS } from "@/types/issue";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const receiptSchema = z.object({
@@ -37,12 +39,12 @@ function tokyoNow(): string {
 }
 
 export async function GET(request: Request) {
-  const credentialIssue = describeGoogleCredentialIssue();
+  const credentialIssue = await describeGoogleCredentialIssue();
   if (credentialIssue) {
     return NextResponse.json({ error: credentialIssue, rows: [] }, { status: 500 });
   }
 
-  const auth = createGoogleOAuthClient();
+  const auth = await createGoogleOAuthClient();
   const settings = await resolveAppSettings(request);
   if (!auth || !settings.spreadsheetId) {
     return NextResponse.json(
@@ -71,12 +73,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const credentialIssue = describeGoogleCredentialIssue();
+    const credentialIssue = await describeGoogleCredentialIssue();
     if (credentialIssue) {
       return NextResponse.json({ error: credentialIssue }, { status: 500 });
     }
 
-    const auth = createGoogleOAuthClient();
+    const auth = await createGoogleOAuthClient();
     const settings = await resolveAppSettings(request);
     if (!auth || !settings.spreadsheetId) {
       return NextResponse.json(

@@ -1,7 +1,8 @@
-import { envVar } from "@/lib/env";
+import { loadServerEnv } from "@/lib/env";
 
 export const DEFAULT_ADMIN_PASSWORD = "admin";
 
-export function getAdminPassword(): string {
-  return envVar("ADMIN_PASSWORD") || DEFAULT_ADMIN_PASSWORD;
+export async function getAdminPassword(): Promise<string> {
+  const env = await loadServerEnv();
+  return env.adminPassword || DEFAULT_ADMIN_PASSWORD;
 }

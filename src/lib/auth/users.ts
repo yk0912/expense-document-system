@@ -21,12 +21,12 @@ function quotedSheet(name: string): string {
   return `'${name.replaceAll("'", "''")}'`;
 }
 
-function defaultUsers(): AppUser[] {
+function defaultUsers(adminPassword: string): AppUser[] {
   return [
     {
       name: ADMIN_USER_NAME,
       role: "admin",
-      password: getAdminPassword(),
+      password: adminPassword,
     },
   ];
 }
@@ -95,9 +95,10 @@ async function ensureUsersSheet(
   return { sheetId, title };
 }
 
-function parseUsers(values: string[][]): AppUser[] {
+async function parseUsers(values: string[][]): Promise<AppUser[]> {
+  const adminPassword = await getAdminPassword();
   if (values.length === 0) {
-    return defaultUsers();
+    return defaultUsers(adminPassword);
   }
   const headers = values[0] ?? [];
   const nameIndex = headers.findIndex((header) => flatten(header) === "ユーザー名");
@@ -115,11 +116,11 @@ function parseUsers(values: string[][]): AppUser[] {
       {
         name,
         role: isAdmin ? "admin" : "user",
-        password: isAdmin ? password || getAdminPassword() : password,
+        password: isAdmin ? password || adminPassword : password,
       } satisfies AppUser,
     ];
   });
-  return users.length > 0 ? users : defaultUsers();
+  return users.length > 0 ? users : defaultUsers(adminPassword);
 }
 
 export async function listAppUsers(input: {
@@ -127,24 +128,24 @@ export async function listAppUsers(input: {
   sheetName?: string;
 }): Promise<AppUser[]> {
   if (!input.spreadsheetId) {
-    return defaultUsers();
+    return defaultUsers(await getAdminPassword());
   }
-  const auth = createGoogleOAuthClient();
+  const auth = await createGoogleOAuthClient();
   if (!auth) {
-    return defaultUsers();
+    return defaultUsers(await getAdminPassword());
   }
   const title = input.sheetName?.trim() || DEFAULT_USERS_SHEET_NAME;
   const sheets = sheetsClient(auth);
   try {
     const existing = await findSheet(sheets, input.spreadsheetId, title);
     if (!existing) {
-      return defaultUsers();
+      return defaultUsers(await getAdminPassword());
     }
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: input.spreadsheetId,
       range: `${quotedSheet(existing.title)}!A1:C500`,
     });
-    return parseUsers((response.data.values ?? []) as string[][]);
+    return await parseUsers((response.data.values ?? []) as string[][]);
   } catch (error) {
     throw new Error(toGoogleErrorMessage(error, "ユーザー一覧の取得に失敗しました。"));
   }
@@ -155,14 +156,14 @@ export async function saveAppUsers(input: {
   sheetName?: string;
   users: Array<{ name: string; role?: string; password?: string }>;
 }): Promise<AppUser[]> {
-  const auth = createGoogleOAuthClient();
+  const auth = await createGoogleOAuthClient();
   if (!auth) {
     throw new Error("Google認証情報が未設定です。");
   }
   if (!input.spreadsheetId) {
     throw new Error("ユーザー一覧のスプレッドシートIDを設定してください。");
   }
-  const normalized = normalizeUsers(input.users);
+  const normalized = await normalizeUsers(input.users);
   const title = input.sheetName?.trim() || DEFAULT_USERS_SHEET_NAME;
   const sheets = sheetsClient(auth);
   try {
@@ -181,7 +182,7 @@ export async function saveAppUsers(input: {
           ...normalized.map((user) => [
             user.name,
             user.role === "admin" ? "管理者" : "一般",
-            user.role === "admin" ? user.password || getAdminPassword() : user.password,
+            user.role === "admin" ? user.password || (await getAdminPassword()) : user.password,
           ]),
         ],
       },
@@ -192,7 +193,8 @@ export async function saveAppUsers(input: {
   }
 }
 
-export function normalizeUsers(users: Array<{ name: string; role?: string; password?: string }>): AppUser[] {
+export async function normalizeUsers(users: Array<{ name: string; role?: string; password?: string }>): Promise<AppUser[]> {
+  const adminPassword = await getAdminPassword();
   const seen = new Set<string>();
   const next: AppUser[] = [];
   for (const user of users) {
@@ -205,14 +207,14 @@ export function normalizeUsers(users: Array<{ name: string; role?: string; passw
     next.push({
       name,
       role: isAdmin ? "admin" : "user",
-      password: isAdmin ? user.password?.trim() || getAdminPassword() : user.password?.trim() ?? "",
+      password: isAdmin ? user.password?.trim() || adminPassword : user.password?.trim() ?? "",
     });
   }
   if (!next.some((user) => user.role === "admin")) {
     next.unshift({
       name: ADMIN_USER_NAME,
       role: "admin",
-      password: getAdminPassword(),
+      password: adminPassword,
     });
   }
   return next;

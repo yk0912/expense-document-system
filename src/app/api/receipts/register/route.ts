@@ -33,6 +33,8 @@ import { buildUserReceiptSheetName } from "@/lib/settings/receipt-sheet";
 import { resolveAppSettings } from "@/lib/settings/server";
 import type { RegisterReceiptResult, RegisterResponse } from "@/types/receipt";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type PreparedReceipt = {
@@ -44,7 +46,7 @@ type PreparedReceipt = {
 
 export async function POST(request: Request) {
   try {
-    const credentialIssue = describeGoogleCredentialIssue();
+    const credentialIssue = await describeGoogleCredentialIssue();
     if (credentialIssue) {
       return NextResponse.json({ error: credentialIssue }, { status: 500 });
     }
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
       return session;
     }
 
-    const auth = createGoogleOAuthClient();
+    const auth = await createGoogleOAuthClient();
     const settings = await resolveAppSettings(request);
     const spreadsheetId = settings.spreadsheetId;
     const driveFolderId = settings.driveFolderId;

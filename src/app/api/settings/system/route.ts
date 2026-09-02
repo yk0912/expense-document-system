@@ -7,6 +7,8 @@ import { passwordsMatch } from "@/lib/auth/session";
 import { parseDriveFolderId, parseSpreadsheetId } from "@/lib/settings/parse";
 import { resolveAppSettings, saveAppSettings } from "@/lib/settings/server";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const payloadSchema = z.object({
@@ -26,7 +28,7 @@ export async function PUT(request: Request) {
   }
   try {
     const body = payloadSchema.parse(await request.json());
-    if (!passwordsMatch(body.password, getAdminPassword())) {
+    if (!passwordsMatch(body.password, await getAdminPassword())) {
       return NextResponse.json({ error: "パスワードが違います。" }, { status: 401 });
     }
     const current = await resolveAppSettings(request);

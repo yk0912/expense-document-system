@@ -1,4 +1,4 @@
-import { envVar } from "@/lib/env";
+import { loadServerEnv } from "@/lib/env";
 import { DEFAULT_USERS_SHEET_NAME } from "@/lib/auth/constants";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
 import { createGoogleOAuthClient } from "@/lib/google/auth";
@@ -16,15 +16,15 @@ import {
 
 const settingsCache = createMemoryTtlCache<AppSettings>(60 * 1000);
 
-function envSettings(): AppSettings {
-  const spreadsheetId = envVar("GOOGLE_SPREADSHEET_ID");
+async function envSettings(): Promise<AppSettings> {
+  const env = await loadServerEnv();
+  const spreadsheetId = env.googleSpreadsheetId;
   return {
     spreadsheetId,
     spreadsheetUrl: spreadsheetUrlFromId(spreadsheetId),
-    sheetName: envVar("GOOGLE_SHEET_NAME") || EMPTY_SETTINGS.sheetName,
-    categorySheetName:
-      envVar("GOOGLE_CATEGORY_SHEET_NAME") || EMPTY_SETTINGS.categorySheetName,
-    driveFolderId: envVar("GOOGLE_DRIVE_FOLDER_ID"),
+    sheetName: env.googleSheetName || EMPTY_SETTINGS.sheetName,
+    categorySheetName: env.googleCategorySheetName || EMPTY_SETTINGS.categorySheetName,
+    driveFolderId: env.googleDriveFolderId,
     issueSheetName: EMPTY_SETTINGS.issueSheetName,
     usersSpreadsheetId: spreadsheetId,
     usersSheetName: DEFAULT_USERS_SHEET_NAME,
@@ -86,7 +86,7 @@ async function readStoredSettings(folderId: string): Promise<Partial<AppSettings
   if (cached) {
     return cached;
   }
-  const auth = createGoogleOAuthClient();
+  const auth = await createGoogleOAuthClient();
   if (!auth) {
     return null;
   }
@@ -99,7 +99,7 @@ async function readStoredSettings(folderId: string): Promise<Partial<AppSettings
     if (!stored) {
       return null;
     }
-    const merged = pickFilled(envSettings(), stored);
+    const merged = pickFilled(await envSettings(), stored);
     settingsCache.set(folderId, merged);
     return stored;
   } catch {
@@ -108,7 +108,7 @@ async function readStoredSettings(folderId: string): Promise<Partial<AppSettings
 }
 
 export async function resolveAppSettings(request?: Request): Promise<AppSettings> {
-  const env = envSettings();
+  const env = await envSettings();
   const headerSettings = request ? settingsFromHeaders(request) : {};
   const folderId = headerSettings.driveFolderId || env.driveFolderId;
   const stored = await readStoredSettings(folderId);
@@ -116,7 +116,7 @@ export async function resolveAppSettings(request?: Request): Promise<AppSettings
 }
 
 export async function saveAppSettings(next: AppSettings): Promise<AppSettings> {
-  const auth = createGoogleOAuthClient();
+  const auth = await createGoogleOAuthClient();
   if (!auth) {
     throw new Error("Google認証情報が未設定です。");
   }

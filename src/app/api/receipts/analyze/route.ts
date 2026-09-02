@@ -8,6 +8,8 @@ import { storeReceiptImage } from "@/lib/images/receipt-image-store";
 import { FORMAT_SHEET_NAME } from "@/lib/settings/types";
 import { resolveAppSettings } from "@/lib/settings/server";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const ALLOWED_TYPES = new Set([

@@ -7,7 +7,7 @@ import {
   resolveSummaryColumns,
 } from "@/lib/accounting/sheet-column-resolver";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
-import { envVar } from "@/lib/env";
+import { loadServerEnv } from "@/lib/env";
 import {
   createGoogleOAuthClient,
   describeGoogleCredentialIssue,
@@ -231,21 +231,22 @@ export async function fetchCategoryMaster(options?: {
   summarySheetName?: string;
   categorySheetName?: string;
 }): Promise<CategoryFetchResult> {
-  const credentialIssue = describeGoogleCredentialIssue();
+  const credentialIssue = await describeGoogleCredentialIssue();
   if (credentialIssue) {
     return { categories: [], warning: credentialIssue };
   }
 
-  const auth = createGoogleOAuthClient();
+  const auth = await createGoogleOAuthClient();
+  const env = await loadServerEnv();
   const spreadsheetId =
-    options?.spreadsheetId?.trim() || envVar("GOOGLE_SPREADSHEET_ID");
+    options?.spreadsheetId?.trim() || env.googleSpreadsheetId;
   const categorySheetName =
     options?.categorySheetName?.trim() ||
-    envVar("GOOGLE_CATEGORY_SHEET_NAME") ||
+    env.googleCategorySheetName ||
     "経費区分の説明";
   const summarySheetName =
     options?.summarySheetName?.trim() ||
-    envVar("GOOGLE_SHEET_NAME") ||
+    env.googleSheetName ||
     "経費集計";
 
   if (!auth || !spreadsheetId) {
