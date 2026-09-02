@@ -1,4 +1,4 @@
-import { connection } from "next/server";
+import nodeProcess from "node:process";
 
 export type ServerEnv = {
   geminiApiKey: string;
@@ -14,23 +14,51 @@ export type ServerEnv = {
   adminPassword: string;
 };
 
-function trim(value: string | undefined): string {
-  return value?.trim() ?? "";
+const KEYS = {
+  geminiApiKey: "GEMINI_API_KEY",
+  geminiModel: "GEMINI_MODEL",
+  geminiThinkingLevel: "GEMINI_THINKING_LEVEL",
+  googleClientId: "GOOGLE_CLIENT_ID",
+  googleClientSecret: "GOOGLE_CLIENT_SECRET",
+  googleRefreshToken: "GOOGLE_REFRESH_TOKEN",
+  googleSpreadsheetId: "GOOGLE_SPREADSHEET_ID",
+  googleDriveFolderId: "GOOGLE_DRIVE_FOLDER_ID",
+  googleSheetName: "GOOGLE_SHEET_NAME",
+  googleCategorySheetName: "GOOGLE_CATEGORY_SHEET_NAME",
+  adminPassword: "ADMIN_PASSWORD",
+} as const;
+
+function read(name: string): string {
+  const value = nodeProcess.env[name];
+  return typeof value === "string" ? value.trim() : "";
 }
 
-export async function loadServerEnv(): Promise<ServerEnv> {
-  await connection();
+export function loadServerEnv(): ServerEnv {
   return {
-    geminiApiKey: trim(process.env.GEMINI_API_KEY),
-    geminiModel: trim(process.env.GEMINI_MODEL),
-    geminiThinkingLevel: trim(process.env.GEMINI_THINKING_LEVEL),
-    googleClientId: trim(process.env.GOOGLE_CLIENT_ID),
-    googleClientSecret: trim(process.env.GOOGLE_CLIENT_SECRET),
-    googleRefreshToken: trim(process.env.GOOGLE_REFRESH_TOKEN),
-    googleSpreadsheetId: trim(process.env.GOOGLE_SPREADSHEET_ID),
-    googleDriveFolderId: trim(process.env.GOOGLE_DRIVE_FOLDER_ID),
-    googleSheetName: trim(process.env.GOOGLE_SHEET_NAME),
-    googleCategorySheetName: trim(process.env.GOOGLE_CATEGORY_SHEET_NAME),
-    adminPassword: trim(process.env.ADMIN_PASSWORD),
+    geminiApiKey: read(KEYS.geminiApiKey),
+    geminiModel: read(KEYS.geminiModel),
+    geminiThinkingLevel: read(KEYS.geminiThinkingLevel),
+    googleClientId: read(KEYS.googleClientId),
+    googleClientSecret: read(KEYS.googleClientSecret),
+    googleRefreshToken: read(KEYS.googleRefreshToken),
+    googleSpreadsheetId: read(KEYS.googleSpreadsheetId),
+    googleDriveFolderId: read(KEYS.googleDriveFolderId),
+    googleSheetName: read(KEYS.googleSheetName),
+    googleCategorySheetName: read(KEYS.googleCategorySheetName),
+    adminPassword: read(KEYS.adminPassword),
   };
+}
+
+export function missingGoogleAuthKeys(env: ServerEnv = loadServerEnv()): string[] {
+  const missing: string[] = [];
+  if (!env.googleClientId) {
+    missing.push(KEYS.googleClientId);
+  }
+  if (!env.googleClientSecret) {
+    missing.push(KEYS.googleClientSecret);
+  }
+  if (!env.googleRefreshToken) {
+    missing.push(KEYS.googleRefreshToken);
+  }
+  return missing;
 }

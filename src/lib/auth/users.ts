@@ -6,6 +6,7 @@ import {
   type AppUser,
 } from "@/lib/auth/constants";
 import { getAdminPassword } from "@/lib/auth/password";
+import { missingGoogleAuthKeys } from "@/lib/env";
 import { createGoogleOAuthClient } from "@/lib/google/auth";
 import { toGoogleErrorMessage } from "@/lib/google/errors";
 
@@ -158,7 +159,12 @@ export async function saveAppUsers(input: {
 }): Promise<AppUser[]> {
   const auth = await createGoogleOAuthClient();
   if (!auth) {
-    throw new Error("Google認証情報が未設定です。");
+    const missing = missingGoogleAuthKeys();
+    throw new Error(
+      missing.length > 0
+        ? `Google認証情報が未設定です。（${missing.join("、")}）`
+        : "Google認証情報が未設定です。",
+    );
   }
   if (!input.spreadsheetId) {
     throw new Error("ユーザー一覧のスプレッドシートIDを設定してください。");

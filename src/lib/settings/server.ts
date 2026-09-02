@@ -1,4 +1,4 @@
-import { loadServerEnv } from "@/lib/env";
+import { loadServerEnv, missingGoogleAuthKeys } from "@/lib/env";
 import { DEFAULT_USERS_SHEET_NAME } from "@/lib/auth/constants";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
 import { createGoogleOAuthClient } from "@/lib/google/auth";
@@ -118,7 +118,12 @@ export async function resolveAppSettings(request?: Request): Promise<AppSettings
 export async function saveAppSettings(next: AppSettings): Promise<AppSettings> {
   const auth = await createGoogleOAuthClient();
   if (!auth) {
-    throw new Error("Google認証情報が未設定です。");
+    const missing = missingGoogleAuthKeys();
+    throw new Error(
+      missing.length > 0
+        ? `Google認証情報が未設定です。（${missing.join("、")}）`
+        : "Google認証情報が未設定です。",
+    );
   }
   if (!next.driveFolderId) {
     throw new Error("親フォルダIDが未設定です。システム設定で指定してください。");
