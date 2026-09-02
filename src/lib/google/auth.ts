@@ -1,14 +1,11 @@
 import { google } from "googleapis";
 
-function readRefreshToken(): string | undefined {
-  const value = process.env.GOOGLE_REFRESH_TOKEN?.trim();
-  return value || undefined;
-}
+import { envVar } from "@/lib/env";
 
 export function describeGoogleCredentialIssue(): string | null {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
-  const refreshToken = readRefreshToken();
+  const clientId = envVar("GOOGLE_CLIENT_ID");
+  const clientSecret = envVar("GOOGLE_CLIENT_SECRET");
+  const refreshToken = envVar("GOOGLE_REFRESH_TOKEN");
 
   if (!clientId || !clientSecret || !refreshToken) {
     return "Google認証情報が未設定のため、経費区分を取得できませんでした。";
@@ -26,9 +23,9 @@ export function describeGoogleCredentialIssue(): string | null {
 }
 
 export function createGoogleOAuthClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
-  const refreshToken = readRefreshToken();
+  const clientId = envVar("GOOGLE_CLIENT_ID");
+  const clientSecret = envVar("GOOGLE_CLIENT_SECRET");
+  const refreshToken = envVar("GOOGLE_REFRESH_TOKEN");
 
   if (!clientId || !clientSecret || !refreshToken) {
     return null;

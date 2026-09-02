@@ -34,14 +34,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       })
       .then((remote) => {
         const merged: AppSettings = {
-          spreadsheetId: local.spreadsheetId || remote.spreadsheetId,
-          spreadsheetUrl: local.spreadsheetUrl || remote.spreadsheetUrl,
-          sheetName: local.sheetName || remote.sheetName,
-          categorySheetName: local.categorySheetName || remote.categorySheetName,
-          driveFolderId: local.driveFolderId || remote.driveFolderId,
-          issueSheetName: local.issueSheetName || remote.issueSheetName,
-          usersSpreadsheetId: local.usersSpreadsheetId || remote.usersSpreadsheetId,
-          usersSheetName: local.usersSheetName || remote.usersSheetName,
+          spreadsheetId: remote.spreadsheetId || local.spreadsheetId,
+          spreadsheetUrl: remote.spreadsheetUrl || local.spreadsheetUrl,
+          sheetName: remote.sheetName || local.sheetName,
+          categorySheetName: remote.categorySheetName || local.categorySheetName,
+          driveFolderId: remote.driveFolderId || local.driveFolderId,
+          issueSheetName: remote.issueSheetName || local.issueSheetName,
+          usersSpreadsheetId: remote.usersSpreadsheetId || local.usersSpreadsheetId,
+          usersSheetName: remote.usersSheetName || local.usersSheetName,
         };
         saveLocalSettings(merged);
         setSettingsState(merged);

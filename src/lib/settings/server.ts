@@ -1,3 +1,4 @@
+import { envVar } from "@/lib/env";
 import { DEFAULT_USERS_SHEET_NAME } from "@/lib/auth/constants";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
 import { createGoogleOAuthClient } from "@/lib/google/auth";
@@ -16,15 +17,14 @@ import {
 const settingsCache = createMemoryTtlCache<AppSettings>(60 * 1000);
 
 function envSettings(): AppSettings {
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim() ?? "";
+  const spreadsheetId = envVar("GOOGLE_SPREADSHEET_ID");
   return {
     spreadsheetId,
     spreadsheetUrl: spreadsheetUrlFromId(spreadsheetId),
-    sheetName: process.env.GOOGLE_SHEET_NAME?.trim() || EMPTY_SETTINGS.sheetName,
+    sheetName: envVar("GOOGLE_SHEET_NAME") || EMPTY_SETTINGS.sheetName,
     categorySheetName:
-      process.env.GOOGLE_CATEGORY_SHEET_NAME?.trim() ||
-      EMPTY_SETTINGS.categorySheetName,
-    driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID?.trim() ?? "",
+      envVar("GOOGLE_CATEGORY_SHEET_NAME") || EMPTY_SETTINGS.categorySheetName,
+    driveFolderId: envVar("GOOGLE_DRIVE_FOLDER_ID"),
     issueSheetName: EMPTY_SETTINGS.issueSheetName,
     usersSpreadsheetId: spreadsheetId,
     usersSheetName: DEFAULT_USERS_SHEET_NAME,

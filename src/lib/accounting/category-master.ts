@@ -7,6 +7,7 @@ import {
   resolveSummaryColumns,
 } from "@/lib/accounting/sheet-column-resolver";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
+import { envVar } from "@/lib/env";
 import {
   createGoogleOAuthClient,
   describeGoogleCredentialIssue,
@@ -237,15 +238,14 @@ export async function fetchCategoryMaster(options?: {
 
   const auth = createGoogleOAuthClient();
   const spreadsheetId =
-    options?.spreadsheetId?.trim() ||
-    process.env.GOOGLE_SPREADSHEET_ID?.trim();
+    options?.spreadsheetId?.trim() || envVar("GOOGLE_SPREADSHEET_ID");
   const categorySheetName =
     options?.categorySheetName?.trim() ||
-    process.env.GOOGLE_CATEGORY_SHEET_NAME ||
+    envVar("GOOGLE_CATEGORY_SHEET_NAME") ||
     "経費区分の説明";
   const summarySheetName =
     options?.summarySheetName?.trim() ||
-    process.env.GOOGLE_SHEET_NAME ||
+    envVar("GOOGLE_SHEET_NAME") ||
     "経費集計";
 
   if (!auth || !spreadsheetId) {
