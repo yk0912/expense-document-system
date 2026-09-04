@@ -7,6 +7,7 @@ type ReceiptItemEditorProps = {
   item: ReviewItem;
   categories: CategoryMasterItem[];
   lumpSum?: boolean;
+  namePlaceholder?: string;
   onChange: (next: ReviewItem) => void;
 };
 
@@ -14,18 +15,24 @@ export function ReceiptItemEditor({
   item,
   categories,
   lumpSum = false,
+  namePlaceholder,
   onChange,
 }: ReceiptItemEditorProps) {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
-      <Input
-        value={item.name}
-        placeholder={lumpSum ? "飲食代" : "商品名"}
-        className="h-11"
-        onChange={(event) =>
-          onChange({ ...item, name: event.target.value, requiresReview: false })
-        }
-      />
+      <label className="block space-y-1">
+        <span className="text-xs text-muted-foreground">
+          {lumpSum ? "内容" : "商品名"}
+        </span>
+        <Input
+          value={item.name}
+          placeholder={namePlaceholder ?? (lumpSum ? "合計" : "商品名")}
+          className="h-11"
+          onChange={(event) =>
+            onChange({ ...item, name: event.target.value, requiresReview: false })
+          }
+        />
+      </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1">
           <span className="text-xs text-muted-foreground">金額（円）</span>

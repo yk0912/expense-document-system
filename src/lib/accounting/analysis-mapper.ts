@@ -58,14 +58,22 @@ function toReviewItem(
   };
 }
 
+export function defaultLumpItemName(vendorKind: ReviewReceipt["vendorKind"]): string {
+  return vendorKind === "dining" ? "飲食代" : "合計";
+}
+
 function createLumpItem(
   amount: number | null,
   category: string | null,
-  existing?: ReviewItem,
+  existing: ReviewItem | undefined,
+  vendorKind: ReviewReceipt["vendorKind"],
+  extractedNames: ReadonlySet<string>,
 ): ReviewItem {
+  const existingName = existing?.name?.trim() ?? "";
+  const keepEditedName = Boolean(existingName) && !extractedNames.has(existingName);
   return {
     clientId: existing?.clientId ?? createId("lump", 0),
-    name: existing?.name?.trim() && existing.name !== "" ? existing.name : "飲食代",
+    name: keepEditedName ? existingName : defaultLumpItemName(vendorKind),
     quantity: 1,
     unitPrice: amount,
     amount,
@@ -149,11 +157,24 @@ export function applyEntryMode(
     const amount =
       receipt.totalAmount ??
       sumAmounts(receipt.extractedItems.map((item) => item.amount));
+    const extractedNames = new Set(
+      receipt.extractedItems
+        .map((item) => item.name.trim())
+        .filter(Boolean),
+    );
 
     return summarizeReceipt({
       ...receipt,
       entryMode,
-      items: [createLumpItem(amount, category, receipt.items[0])],
+      items: [
+        createLumpItem(
+          amount,
+          category,
+          receipt.items[0],
+          receipt.vendorKind,
+          extractedNames,
+        ),
+      ],
     });
   }
 

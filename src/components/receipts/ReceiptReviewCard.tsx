@@ -1,6 +1,10 @@
 "use client";
 
-import { applyEntryMode, summarizeReceipt } from "@/lib/accounting/analysis-mapper";
+import {
+  applyEntryMode,
+  defaultLumpItemName,
+  summarizeReceipt,
+} from "@/lib/accounting/analysis-mapper";
 import {
   resolveVendorKind,
   usesDiningVendorLabel,
@@ -145,13 +149,14 @@ export function ReceiptReviewCard({
           <div className="space-y-2">
             <p className="text-sm font-medium">合計計上</p>
             <p className="text-sm text-muted-foreground">
-              飲食店の領収書・レシートはメニューごとの区分は不要です。会議費または交際費で合計を計上します。
+              商品名は使わず、レシート合計を1件として計上します。経費区分は会議費または交際費などを選んでください。
             </p>
             {receipt.items[0] ? (
               <ReceiptItemEditor
                 item={receipt.items[0]}
                 categories={categories}
                 lumpSum
+                namePlaceholder={defaultLumpItemName(receipt.vendorKind)}
                 onChange={(nextItem) => update({ items: [nextItem] })}
               />
             ) : null}

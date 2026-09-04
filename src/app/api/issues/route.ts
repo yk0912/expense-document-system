@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { issueFieldLabel } from "@/lib/issues/fields";
 import { createGoogleOAuthClient, describeGoogleCredentialIssue } from "@/lib/google/auth";
-import { ensureNamedFolder, uploadReceiptImage } from "@/lib/google/drive";
+import { ensureNamedFolder, uploadReceiptImage, type UploadedDriveFile } from "@/lib/google/drive";
 import { toGoogleErrorMessage } from "@/lib/google/errors";
 import { appendIssueRows, listIssueRows } from "@/lib/google/issue-sheet";
 import { sanitizeFileToken, toCompactDate } from "@/lib/accounting/filename";
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     }
     const payload = payloadSchema.parse(JSON.parse(rawPayload));
     const file = formData.get("image");
-    let uploaded: { name: string; webViewLink: string } | null = null;
+    let uploaded: UploadedDriveFile | null = null;
     if (file instanceof File && file.size > 0) {
       const image = Buffer.from(await file.arrayBuffer());
       const first = payload.receipts[0];
