@@ -42,11 +42,13 @@ export function ReceiptReviewCard({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>レシート {receipt.receiptIndex}</CardTitle>
+    <Card className="gap-0 overflow-hidden border-[3px] border-primary py-0 ring-0">
+      <CardHeader className="rounded-none bg-primary py-3">
+        <CardTitle className="text-lg font-semibold text-primary-foreground">
+          レシート {receipt.receiptIndex}
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 py-(--card-spacing)">
         <label className="block space-y-1">
           <span className="text-xs text-muted-foreground">取引先</span>
           <Input
