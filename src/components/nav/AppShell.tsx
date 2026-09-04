@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { BottomNav } from "@/components/nav/BottomNav";
+import { DeployedAtLabel } from "@/components/nav/DeployedAtLabel";
 import { SettingsProvider } from "@/components/settings/SettingsProvider";
 
 type SessionInfo = { name: string; isAdmin: boolean };
@@ -38,8 +39,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-full flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))]">
         {session ? (
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 text-sm">
-            <p className="truncate text-muted-foreground">{session.name}</p>
-            <button type="button" className="text-primary" onClick={() => void handleLogout()}>
+            <div className="min-w-0">
+              <p className="truncate text-muted-foreground">{session.name}</p>
+              <DeployedAtLabel className="truncate text-xs text-muted-foreground" />
+            </div>
+            <button type="button" className="shrink-0 text-primary" onClick={() => void handleLogout()}>
               ログアウト
             </button>
           </div>

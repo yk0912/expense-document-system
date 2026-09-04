@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { DeployedAtLabel } from "@/components/nav/DeployedAtLabel";
 import { Button } from "@/components/ui/button";
 import { ADMIN_USER_NAME } from "@/lib/auth/constants";
 
@@ -117,6 +118,8 @@ export function LoginScreen() {
       >
         {loading ? "ログイン中…" : "ログイン"}
       </Button>
+
+      <DeployedAtLabel className="text-center text-xs text-muted-foreground" />
     </div>
   );
 }
