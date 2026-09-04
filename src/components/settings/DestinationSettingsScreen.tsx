@@ -29,7 +29,7 @@ export function DestinationSettingsScreen() {
         <p className="text-sm text-muted-foreground">設定</p>
         <h1 className="text-2xl font-semibold tracking-tight">登録先設定</h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          経費は「フォーマット」をコピーしたユーザー別シート（シート名_ユーザー名）へ転記します。すでに同じ名前のシートがあれば、一番下の空白行に追記します。書き込み先ブックとシート名はシステム設定で管理者だけが変更できます。
+          経費は「フォーマット」をコピーしたユーザー別シート（シート名_ログイン名）へ転記します。すでに同じ名前のシートがあれば、一番下の空白行に追記します。書き込み先ブックとシート名はシステム設定で管理者だけが変更できます。
         </p>
       </header>
 

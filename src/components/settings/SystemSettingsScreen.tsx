@@ -202,7 +202,7 @@ export function SystemSettingsScreen() {
             autoComplete="off"
           />
           <span className="block text-xs leading-5 text-muted-foreground">
-            登録時は「フォーマット」をコピーし、この名前のあとに _ユーザー名 を付けたシートへ書き込みます。
+            登録時は「フォーマット」シートをコピーし、この名前とログイン名をアンダースコアでつないだシート（シート名_ログイン名）へ書き込みます。同じ名前のシートがあれば、そのシートの一番下に追記します。
           </span>
         </label>
       </section>

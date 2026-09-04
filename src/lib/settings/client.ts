@@ -28,9 +28,6 @@ export function settingsHeaders(settings: AppSettings): HeadersInit {
   if (settings.spreadsheetId) {
     headers["x-app-spreadsheet-id"] = encodeURIComponent(settings.spreadsheetId);
   }
-  if (settings.sheetName) {
-    headers["x-app-sheet-name"] = encodeURIComponent(settings.sheetName);
-  }
   if (settings.driveFolderId) {
     headers["x-app-drive-folder-id"] = encodeURIComponent(settings.driveFolderId);
   }

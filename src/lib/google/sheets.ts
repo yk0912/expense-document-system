@@ -81,55 +81,6 @@ async function listSheets(
   );
 }
 
-async function ensureUserReceiptSheet(
-  sheets: sheets_v4.Sheets,
-  spreadsheetId: string,
-  targetTitle: string,
-  formatTitle = FORMAT_SHEET_NAME,
-): Promise<SheetRef> {
-  const titles = await listSheets(sheets, spreadsheetId);
-  const existing = titles.find((sheet) => sheet.title === targetTitle);
-  if (existing) {
-    return existing;
-  }
-
-  const format = titles.find((sheet) => sheet.title === formatTitle);
-  if (!format) {
-    throw new Error(
-      `「${formatTitle}」シートが見つかりません。書き込み先ブックに用意してください。`,
-    );
-  }
-
-  try {
-    const created = await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [
-          {
-            duplicateSheet: {
-              sourceSheetId: format.sheetId,
-              newSheetName: targetTitle,
-            },
-          },
-        ],
-      },
-    });
-    const props = created.data.replies?.[0]?.duplicateSheet?.properties;
-    if (props?.sheetId == null || !props.title) {
-      throw new Error(`「${targetTitle}」シートの作成に失敗しました。`);
-    }
-    return { sheetId: props.sheetId, title: props.title };
-  } catch (error) {
-    const raced = (await listSheets(sheets, spreadsheetId)).find(
-      (sheet) => sheet.title === targetTitle,
-    );
-    if (raced) {
-      return raced;
-    }
-    throw error;
-  }
-}
-
 function layoutCacheKey(spreadsheetId: string, preferredTitle: string): string {
   return `${spreadsheetId}\t${preferredTitle}\theader-v2`;
 }
@@ -139,6 +90,88 @@ export function invalidateSheetLayoutCache(
   preferredTitle: string,
 ) {
   layoutCache.delete(layoutCacheKey(spreadsheetId, preferredTitle));
+}
+
+function findSheetByTitle(sheets: SheetRef[], title: string): SheetRef | undefined {
+  const needle = title.trim();
+  return sheets.find((sheet) => sheet.title.trim() === needle);
+}
+
+async function renameSheet(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  sheetId: number,
+  title: string,
+): Promise<void> {
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: { sheetId, title },
+            fields: "title",
+          },
+        },
+      ],
+    },
+  });
+}
+
+async function ensureUserReceiptSheet(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  targetTitle: string,
+  formatTitle = FORMAT_SHEET_NAME,
+): Promise<SheetRef> {
+  const existing = findSheetByTitle(await listSheets(sheets, spreadsheetId), targetTitle);
+  if (existing) {
+    return existing;
+  }
+
+  const format = findSheetByTitle(await listSheets(sheets, spreadsheetId), formatTitle);
+  if (!format) {
+    throw new Error(
+      `「${formatTitle}」シートが見つかりません。書き込み先ブックに用意してください。`,
+    );
+  }
+
+  const created = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          duplicateSheet: {
+            sourceSheetId: format.sheetId,
+          },
+        },
+      ],
+    },
+  });
+  const props = created.data.replies?.[0]?.duplicateSheet?.properties;
+  if (props?.sheetId == null) {
+    throw new Error(`「${targetTitle}」シートの作成に失敗しました。`);
+  }
+
+  try {
+    await renameSheet(sheets, spreadsheetId, props.sheetId, targetTitle);
+    layoutCache.delete(layoutCacheKey(spreadsheetId, targetTitle));
+    return { sheetId: props.sheetId, title: targetTitle };
+  } catch (error) {
+    const raced = findSheetByTitle(await listSheets(sheets, spreadsheetId), targetTitle);
+    if (raced) {
+      if (raced.sheetId !== props.sheetId) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{ deleteSheet: { sheetId: props.sheetId } }],
+          },
+        }).catch(() => undefined);
+      }
+      return raced;
+    }
+    throw error;
+  }
 }
 
 function hyperlinkFormula(url: string, label: string): string {
@@ -203,8 +236,9 @@ async function loadSheetLayout(
     return cached;
   }
 
-  const matched = (await listSheets(sheets, spreadsheetId)).find(
-    (sheet) => sheet.title === preferredTitle,
+  const matched = findSheetByTitle(
+    await listSheets(sheets, spreadsheetId),
+    preferredTitle,
   );
 
   if (!matched) {
@@ -382,8 +416,12 @@ export async function appendReceiptRows(
   const sheets = sheetsClient(auth);
 
   try {
-    await ensureUserReceiptSheet(sheets, spreadsheetId, preferredTitle);
-    let layout = await loadSheetLayout(sheets, spreadsheetId, preferredTitle);
+    const targetSheet = await ensureUserReceiptSheet(
+      sheets,
+      spreadsheetId,
+      preferredTitle,
+    );
+    let layout = await loadSheetLayout(sheets, spreadsheetId, targetSheet.title);
     const remapWrites = (current = layout) =>
       receipts.map((receipt) => {
         const remapped = remapCategoryAmounts(
@@ -395,8 +433,8 @@ export async function appendReceiptRows(
 
     let preparedWrites = remapWrites();
     if (preparedWrites.some((item) => item.missing.length > 0)) {
-      invalidateSheetLayoutCache(spreadsheetId, preferredTitle);
-      layout = await loadSheetLayout(sheets, spreadsheetId, preferredTitle);
+      invalidateSheetLayoutCache(spreadsheetId, targetSheet.title);
+      layout = await loadSheetLayout(sheets, spreadsheetId, targetSheet.title);
       preparedWrites = remapWrites(layout);
     }
 
@@ -500,10 +538,16 @@ export async function appendReceiptRows(
       })),
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (
+      message.startsWith("経費集計") ||
+      message.includes("フォーマット") ||
+      message.includes("シート")
+    ) {
+      throw error instanceof Error ? error : new Error(message);
+    }
     throw new Error(
-      error instanceof Error && error.message.startsWith("経費集計")
-        ? error.message
-        : toGoogleErrorMessage(error, "スプレッドシートへの転記に失敗しました。"),
+      toGoogleErrorMessage(error, "スプレッドシートへの転記に失敗しました。"),
     );
   }
 }

@@ -73,7 +73,6 @@ function headerValue(request: Request, name: string): string {
 export function settingsFromHeaders(request: Request): Partial<AppSettings> {
   return {
     spreadsheetId: parseSpreadsheetId(headerValue(request, "x-app-spreadsheet-id")),
-    sheetName: headerValue(request, "x-app-sheet-name"),
     driveFolderId: parseDriveFolderId(headerValue(request, "x-app-drive-folder-id")),
   };
 }
@@ -107,12 +106,21 @@ async function readStoredSettings(folderId: string): Promise<Partial<AppSettings
   }
 }
 
-export async function resolveAppSettings(request?: Request): Promise<AppSettings> {
+export async function resolveStoredAppSettings(): Promise<AppSettings> {
   const env = await envSettings();
+  const stored = await readStoredSettings(env.driveFolderId);
+  return pickFilled(env, stored);
+}
+
+export async function resolveAppSettings(request?: Request): Promise<AppSettings> {
+  const stored = await resolveStoredAppSettings();
   const headerSettings = request ? settingsFromHeaders(request) : {};
-  const folderId = headerSettings.driveFolderId || env.driveFolderId;
-  const stored = await readStoredSettings(folderId);
-  return pickFilled(pickFilled(env, stored), headerSettings);
+  const folderId = headerSettings.driveFolderId || stored.driveFolderId;
+  const storedForFolder =
+    folderId && folderId !== stored.driveFolderId
+      ? await readStoredSettings(folderId)
+      : stored;
+  return pickFilled(pickFilled(stored, storedForFolder), headerSettings);
 }
 
 export async function saveAppSettings(next: AppSettings): Promise<AppSettings> {

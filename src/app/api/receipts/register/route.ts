@@ -30,7 +30,7 @@ import {
 } from "@/lib/images/receipt-image-store";
 import { requireSession } from "@/lib/auth/guard";
 import { buildUserReceiptSheetName } from "@/lib/settings/receipt-sheet";
-import { resolveAppSettings } from "@/lib/settings/server";
+import { resolveStoredAppSettings } from "@/lib/settings/server";
 import type { RegisterReceiptResult, RegisterResponse } from "@/types/receipt";
 
 export const dynamic = "force-dynamic";
@@ -57,9 +57,10 @@ export async function POST(request: Request) {
     }
 
     const auth = await createGoogleOAuthClient();
-    const settings = await resolveAppSettings(request);
+    const settings = await resolveStoredAppSettings();
     const spreadsheetId = settings.spreadsheetId;
     const driveFolderId = settings.driveFolderId;
+    // 書き込み先は「システム設定のシート名_ログイン名」。なければ「フォーマット」をコピーして改名する。
     const sheetName = buildUserReceiptSheetName(settings.sheetName, session.name);
 
     if (!auth || !spreadsheetId) {
