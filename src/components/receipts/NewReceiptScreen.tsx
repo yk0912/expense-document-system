@@ -39,6 +39,7 @@ export function NewReceiptScreen() {
   );
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  const [results, setResults] = useState<RegisterReceiptResult[] | null>(null);
   const [openCameraOnCapture, setOpenCameraOnCapture] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
   const analyzeAbortRef = useRef<AbortController | null>(null);
