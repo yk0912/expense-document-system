@@ -97,7 +97,7 @@ async function ensureUsersSheet(
 }
 
 async function parseUsers(values: string[][]): Promise<AppUser[]> {
-  const adminPassword = await getAdminPassword();
+  const adminPassword = getAdminPassword();
   if (values.length === 0) {
     return defaultUsers(adminPassword);
   }
@@ -129,18 +129,18 @@ export async function listAppUsers(input: {
   sheetName?: string;
 }): Promise<AppUser[]> {
   if (!input.spreadsheetId) {
-    return defaultUsers(await getAdminPassword());
+    return defaultUsers(getAdminPassword());
   }
   const auth = await createGoogleOAuthClient();
   if (!auth) {
-    return defaultUsers(await getAdminPassword());
+    return defaultUsers(getAdminPassword());
   }
   const title = input.sheetName?.trim() || DEFAULT_USERS_SHEET_NAME;
   const sheets = sheetsClient(auth);
   try {
     const existing = await findSheet(sheets, input.spreadsheetId, title);
     if (!existing) {
-      return defaultUsers(await getAdminPassword());
+      return defaultUsers(getAdminPassword());
     }
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: input.spreadsheetId,
@@ -170,6 +170,7 @@ export async function saveAppUsers(input: {
     throw new Error("ユーザー一覧のスプレッドシートIDを設定してください。");
   }
   const normalized = await normalizeUsers(input.users);
+  const adminPassword = getAdminPassword();
   const title = input.sheetName?.trim() || DEFAULT_USERS_SHEET_NAME;
   const sheets = sheetsClient(auth);
   try {
@@ -188,7 +189,7 @@ export async function saveAppUsers(input: {
           ...normalized.map((user) => [
             user.name,
             user.role === "admin" ? "管理者" : "一般",
-            user.role === "admin" ? user.password || (await getAdminPassword()) : user.password,
+            user.role === "admin" ? user.password || adminPassword : user.password,
           ]),
         ],
       },
@@ -200,7 +201,7 @@ export async function saveAppUsers(input: {
 }
 
 export async function normalizeUsers(users: Array<{ name: string; role?: string; password?: string }>): Promise<AppUser[]> {
-  const adminPassword = await getAdminPassword();
+  const adminPassword = getAdminPassword();
   const seen = new Set<string>();
   const next: AppUser[] = [];
   for (const user of users) {
