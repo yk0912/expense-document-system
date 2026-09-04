@@ -17,9 +17,10 @@ function canUseLiveCamera(): boolean {
 type ReceiptCaptureProps = {
   disabled?: boolean;
   onFile: (file: File) => void;
+  openCamera?: boolean;
 };
 
-export function ReceiptCapture({ disabled, onFile }: ReceiptCaptureProps) {
+export function ReceiptCapture({ disabled, onFile, openCamera = false }: ReceiptCaptureProps) {
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const lastFileKeyRef = useRef("");
   const [liveOpen, setLiveOpen] = useState(false);
@@ -42,6 +43,12 @@ export function ReceiptCapture({ disabled, onFile }: ReceiptCaptureProps) {
     }
     event.target.value = "";
   };
+
+  useEffect(() => {
+    if (openCamera && canUseLiveCamera()) {
+      setLiveOpen(true);
+    }
+  }, [openCamera]);
 
   useEffect(() => {
     const input = libraryInputRef.current;

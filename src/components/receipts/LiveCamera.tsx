@@ -110,7 +110,7 @@ export function LiveCamera({ onCapture, onClose }: LiveCameraProps) {
           disabled={Boolean(error)}
           onClick={() => void handleShutter()}
         >
-          シャッター
+          撮る
         </Button>
       </div>
     </div>

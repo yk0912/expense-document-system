@@ -39,7 +39,7 @@ export function NewReceiptScreen() {
   );
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
-  const [results, setResults] = useState<RegisterReceiptResult[] | null>(null);
+  const [openCameraOnCapture, setOpenCameraOnCapture] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
   const analyzeAbortRef = useRef<AbortController | null>(null);
 
@@ -137,17 +137,12 @@ export function NewReceiptScreen() {
     setError(null);
     setIsCompressing(true);
     await new Promise((resolve) => window.setTimeout(resolve, 50));
-    let next: CompressedReceiptImage | null = null;
     try {
-      next = await compressReceiptImage(file);
-      replaceImage(next);
+      replaceImage(await compressReceiptImage(file));
     } catch {
       setError("画像の処理に失敗しました。別の写真で試してください。");
     } finally {
       setIsCompressing(false);
-    }
-    if (next) {
-      await analyzeImage(next);
     }
   };
 
@@ -248,20 +243,35 @@ export function NewReceiptScreen() {
       <header className="space-y-1">
         <p className="text-sm text-muted-foreground">経費レシート</p>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {registeredAll ? "登録しました" : analysis ? "内容を確認" : "撮影する"}
+          {registeredAll
+            ? "登録しました"
+            : analysis
+              ? "内容を確認"
+              : image
+                ? "読み取り確認"
+                : "撮影する"}
         </h1>
         <p className="text-sm leading-6 text-muted-foreground">
           {registeredAll
             ? "Driveに画像を保存し、スプレッドシートへ転記しました。"
             : analysis
-              ? "間違っている箇所だけ直してください。飲食店は合計、スーパー等は商品ごとに区分してください。"
-              : "撮影すると自動で読み取ります。1枚に複数枚写っていても構いません。"}
+              ? "間違っている箇所だけ直してください。複数品目はまとめて表示が初期値です。必要なら商品ごとに分けてください。"
+              : image
+                ? "この写真から情報を読み取りますか？"
+                : "写真を撮るか、ライブラリから選んでください。"}
         </p>
       </header>
 
-      {!analysis ? (
+      {!analysis && !image ? (
         <>
-          <ReceiptCapture disabled={isCompressing || isAnalyzing} onFile={handleFile} />
+          <ReceiptCapture
+            disabled={isCompressing || isAnalyzing}
+            openCamera={openCameraOnCapture}
+            onFile={(file) => {
+              setOpenCameraOnCapture(false);
+              void handleFile(file);
+            }}
+          />
           {isCompressing ? (
             <p className="text-sm text-muted-foreground">画像を圧縮しています…</p>
           ) : null}
@@ -275,26 +285,31 @@ export function NewReceiptScreen() {
       {image && !analysis ? (
         <>
           <ReceiptPreview image={image} />
-          <div className="space-y-3">
-            {!isAnalyzing ? (
+          {!isAnalyzing ? (
+            <div className="space-y-3">
+              <p className="text-center text-base font-medium">
+                この写真から情報を読み取りますか？
+              </p>
               <Button
                 type="button"
                 className="h-14 w-full text-base"
                 onClick={() => void analyzeImage(image)}
               >
-                もう一度読み取る
+                読み取る
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 w-full"
-              disabled={isAnalyzing}
-              onClick={() => replaceImage(null)}
-            >
-              やり直す
-            </Button>
-          </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-14 w-full text-base"
+                onClick={() => {
+                  setOpenCameraOnCapture(true);
+                  replaceImage(null);
+                }}
+              >
+                撮影し直す
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : null}
 

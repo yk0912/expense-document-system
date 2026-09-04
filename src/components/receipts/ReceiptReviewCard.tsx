@@ -121,7 +121,7 @@ export function ReceiptReviewCard({
               )
             }
           >
-            <option value="lump_sum">合計で計上（会議費・交際費）</option>
+            <option value="lump_sum">まとめて表示</option>
             <option value="line_items">商品ごとに分ける</option>
           </select>
         </label>

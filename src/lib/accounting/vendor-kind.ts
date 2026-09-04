@@ -57,20 +57,11 @@ export function toSheetVendorName(
 }
 
 export function resolveEntryMode(
-  vendorKind: VendorKind,
-  hasUsableLineItems: boolean,
-  totalAmount: number | null,
+  _vendorKind: VendorKind,
+  _hasUsableLineItems: boolean,
+  _totalAmount: number | null,
 ): EntryMode {
-  if (vendorKind === "retail") {
-    return "line_items";
-  }
-  if (vendorKind === "dining") {
-    return "lump_sum";
-  }
-  if (!hasUsableLineItems && totalAmount !== null) {
-    return "lump_sum";
-  }
-  return "line_items";
+  return "lump_sum";
 }
 
 export function suggestDiningCategory(
