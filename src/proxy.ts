@@ -7,7 +7,12 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await decodeSession(request.cookies.get(SESSION_COOKIE)?.value);
 
-  if (pathname === "/login" || pathname.startsWith("/api/auth/")) {
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/receipts/files" ||
+    pathname.startsWith("/api/receipts/files/")
+  ) {
     if (pathname === "/login" && session) {
       const next = request.nextUrl.searchParams.get("next") || "/receipts/new";
       return NextResponse.redirect(new URL(next, request.url));
