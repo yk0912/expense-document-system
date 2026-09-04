@@ -248,8 +248,8 @@ export function findFirstDataRowIndex(
       start += 1;
       continue;
     }
-    const rateCount = filled.filter((cell) => isTaxRateLabel(cell)).length;
-    if (rateCount / filled.length >= 0.5) {
+    const rateOnly = filled.every((cell) => isTaxRateLabel(cell));
+    if (rateOnly) {
       start += 1;
       continue;
     }

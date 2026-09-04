@@ -224,6 +224,8 @@ export async function uploadReceiptImage(
       throw new Error("Driveへの画像保存に失敗しました。");
     }
 
+    await shareFileAnyoneReader(drive, id);
+
     return {
       id,
       name,
@@ -232,6 +234,61 @@ export async function uploadReceiptImage(
     };
   } catch (error) {
     throw new Error(toGoogleErrorMessage(error, "Driveへの画像保存に失敗しました。"));
+  }
+}
+
+async function shareFileAnyoneReader(
+  drive: drive_v3.Drive,
+  fileId: string,
+): Promise<void> {
+  try {
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        type: "anyone",
+        role: "reader",
+      },
+      supportsAllDrives: true,
+    });
+  } catch {
+    // 組織設定で公開共有できない場合でも、アプリ経由の表示は続ける。
+  }
+}
+
+export async function downloadDriveFile(
+  auth: Parameters<typeof google.drive>[0]["auth"],
+  fileId: string,
+): Promise<{ name: string; mimeType: string; body: Buffer }> {
+  const drive = driveClient(auth);
+  try {
+    const meta = await drive.files.get({
+      fileId,
+      fields: "id, name, mimeType",
+      supportsAllDrives: true,
+    });
+    const mimeType = meta.data.mimeType ?? "";
+    if (!mimeType.startsWith("image/")) {
+      throw new Error("画像ファイルではありません。");
+    }
+    const media = await drive.files.get(
+      {
+        fileId,
+        alt: "media",
+        supportsAllDrives: true,
+      },
+      { responseType: "arraybuffer" },
+    );
+    const raw = media.data;
+    const body = Buffer.isBuffer(raw)
+      ? raw
+      : Buffer.from(raw as ArrayBuffer);
+    return {
+      name: meta.data.name ?? fileId,
+      mimeType,
+      body,
+    };
+  } catch (error) {
+    throw new Error(toGoogleErrorMessage(error, "画像の取得に失敗しました。"));
   }
 }
 

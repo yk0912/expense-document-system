@@ -15,6 +15,7 @@ import {
   readIssueDraft,
   type IssueDraftReceipt,
 } from "@/lib/issues/draft";
+import { viewableReceiptUrl } from "@/lib/google/drive-file";
 import { appFetch } from "@/lib/settings/client";
 import { STORES } from "@/types/receipt";
 import { ISSUE_STATUS, type IssueSheetRow } from "@/types/issue";
@@ -348,7 +349,7 @@ export function IssueReportScreen() {
                       <td className="px-2 py-2 whitespace-nowrap">{row.assignedStore}</td>
                       <td className="px-2 py-2">
                         {row.fileUrl ? (
-                          <a href={row.fileUrl} target="_blank" rel="noreferrer" className="underline">
+                          <a href={viewableReceiptUrl(row.fileUrl)} target="_blank" rel="noreferrer" className="underline">
                             {row.vendorName || "画像"}
                           </a>
                         ) : (

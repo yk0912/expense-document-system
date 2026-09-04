@@ -312,31 +312,35 @@ async function loadScanRows(
   return rows;
 }
 
+function findDataStartIndex(rows: string[][], headerRowIndex: number): number {
+  const windowEnd = Math.min(rows.length, headerRowIndex + 8);
+  const start = findFirstDataRowIndex(rows.slice(0, windowEnd), headerRowIndex);
+  if (start >= windowEnd) {
+    return Math.min(headerRowIndex + 1, rows.length);
+  }
+  return start;
+}
+
 function findTargetRow(
   rows: string[][],
   columns: SummaryColumns,
   headerRowIndex: number,
 ): { rowNumber: number; insert: boolean } {
-  const dataStart = findFirstDataRowIndex(rows, headerRowIndex);
-  let lastDataIndex = dataStart - 1;
-  let emptyRun = 0;
+  const dataStart = findDataStartIndex(rows, headerRowIndex);
+  let lastDataIndex = -1;
 
   for (let index = dataStart; index < rows.length; index += 1) {
     if (isRealDataRow(rows[index], columns)) {
       lastDataIndex = index;
-      emptyRun = 0;
-      continue;
-    }
-    emptyRun += 1;
-    if (lastDataIndex > 0 && emptyRun >= 5) {
-      break;
     }
   }
 
-  const nextRowNumber = lastDataIndex + 2;
-  const nextIndex = nextRowNumber - 1;
-  const nextRow = rows[nextIndex];
+  if (lastDataIndex < 0) {
+    return { rowNumber: dataStart + 1, insert: false };
+  }
 
+  const nextRowNumber = lastDataIndex + 2;
+  const nextRow = rows[nextRowNumber - 1];
   if (nextRow && isFooterRow(nextRow) && !isRealDataRow(nextRow, columns)) {
     return { rowNumber: nextRowNumber, insert: true };
   }

@@ -7,12 +7,21 @@ import { ensureNamedFolder, uploadReceiptImage } from "@/lib/google/drive";
 import { toGoogleErrorMessage } from "@/lib/google/errors";
 import { appendIssueRows, listIssueRows } from "@/lib/google/issue-sheet";
 import { sanitizeFileToken, toCompactDate } from "@/lib/accounting/filename";
+import { receiptImageUrl, viewableReceiptUrl } from "@/lib/google/drive-file";
+import { requestOrigin } from "@/lib/http/origin";
 import { resolveAppSettings } from "@/lib/settings/server";
 import { ISSUE_STATUS } from "@/types/issue";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+function withViewableFileUrls<T extends { fileUrl: string }>(rows: T[]): T[] {
+  return rows.map((row) => ({
+    ...row,
+    fileUrl: row.fileUrl ? viewableReceiptUrl(row.fileUrl) : row.fileUrl,
+  }));
+}
 
 const receiptSchema = z.object({
   receiptIndex: z.number().int().positive().optional(),
@@ -59,7 +68,7 @@ export async function GET(request: Request) {
       settings.spreadsheetId,
       settings.issueSheetName,
     );
-    return NextResponse.json({ rows });
+    return NextResponse.json({ rows: withViewableFileUrls(rows) });
   } catch (error) {
     return NextResponse.json(
       {
@@ -130,7 +139,9 @@ export async function POST(request: Request) {
         failedFields: receipt.failedFields.map(issueFieldLabel).join("、"),
         note: receipt.note,
         fileName: uploaded?.name ?? "",
-        fileUrl: uploaded?.webViewLink ?? "",
+        fileUrl: uploaded
+          ? receiptImageUrl(requestOrigin(request), uploaded.id)
+          : "",
         status: ISSUE_STATUS.open,
       })),
       settings.issueSheetName,
@@ -141,7 +152,7 @@ export async function POST(request: Request) {
       settings.spreadsheetId,
       settings.issueSheetName,
     );
-    return NextResponse.json({ ok: true, rows });
+    return NextResponse.json({ ok: true, rows: withViewableFileUrls(rows) });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

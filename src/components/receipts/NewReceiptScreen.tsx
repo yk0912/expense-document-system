@@ -15,6 +15,7 @@ import {
 } from "@/lib/images/compress";
 import { saveIssueDraft } from "@/lib/issues/draft";
 import { receiptsHaveIssueFields } from "@/lib/issues/fields";
+import { viewableReceiptUrl } from "@/lib/google/drive-file";
 import { appFetch } from "@/lib/settings/client";
 import type {
   AnalyzeResponse,
@@ -315,7 +316,7 @@ export function NewReceiptScreen() {
                 result.fileUrl ? (
                   <p>
                     <a
-                      href={result.fileUrl}
+                      href={viewableReceiptUrl(result.fileUrl)}
                       target="_blank"
                       rel="noreferrer"
                       className="underline"

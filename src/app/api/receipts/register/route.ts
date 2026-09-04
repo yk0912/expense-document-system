@@ -30,6 +30,8 @@ import {
 } from "@/lib/images/receipt-image-store";
 import { requireSession } from "@/lib/auth/guard";
 import { buildUserReceiptSheetName } from "@/lib/settings/receipt-sheet";
+import { receiptImageUrl } from "@/lib/google/drive-file";
+import { requestOrigin } from "@/lib/http/origin";
 import { resolveStoredAppSettings } from "@/lib/settings/server";
 import type { RegisterReceiptResult, RegisterResponse } from "@/types/receipt";
 
@@ -217,6 +219,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const fileUrl = receiptImageUrl(requestOrigin(request), uploaded.id);
+
     try {
       await updateReceiptFileLinks(
         auth,
@@ -225,7 +229,7 @@ export async function POST(request: Request) {
         writtenRows.map((row) => ({
           rowNumber: row.rowNumber,
           fileName: uploaded.name,
-          fileUrl: uploaded.webViewLink,
+          fileUrl,
         })),
       );
     } catch (linkError) {
@@ -269,7 +273,7 @@ export async function POST(request: Request) {
       sheetTitle: layout.title,
       rowNumber: writtenRows[index]?.rowNumber ?? null,
       fileName: uploaded.name,
-      fileUrl: uploaded.webViewLink,
+      fileUrl,
       duplicates: writtenRows[index]?.duplicates ?? [],
       error: null,
     }));
