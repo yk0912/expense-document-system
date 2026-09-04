@@ -1,4 +1,9 @@
-import { explainedByConsumptionTax, sumAmounts } from "@/lib/accounting/amount-check";
+import {
+  explainedByConsumptionTax,
+  explainedByItemTaxRates,
+  looksLikeConsumptionTaxGap,
+  sumAmounts,
+} from "@/lib/accounting/amount-check";
 import { matchCategoryName } from "@/lib/accounting/category-column";
 import { parseTransactionDate } from "@/lib/accounting/date";
 import { resolveStore } from "@/lib/accounting/store-resolver";
@@ -62,6 +67,21 @@ export function defaultLumpItemName(vendorKind: ReviewReceipt["vendorKind"]): st
   return vendorKind === "dining" ? "飲食代" : "合計";
 }
 
+export function createEmptyReviewItem(): ReviewItem {
+  return {
+    clientId: createId("item", 0),
+    name: "",
+    quantity: null,
+    unitPrice: null,
+    amount: null,
+    taxRate: null,
+    itemType: "item",
+    category: null,
+    categoryConfidence: null,
+    requiresReview: true,
+  };
+}
+
 function createLumpItem(
   amount: number | null,
   category: string | null,
@@ -116,6 +136,23 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     receipt.totalAmount !== null && lineTotal !== null
       ? explainedByConsumptionTax(receipt.totalAmount, lineTotal)
       : null;
+  const itemRatesExplain =
+    receipt.totalAmount !== null
+      ? explainedByItemTaxRates(receipt.totalAmount, receipt.items)
+      : false;
+  const taxGap =
+    receipt.totalAmount !== null && lineTotal !== null
+      ? looksLikeConsumptionTaxGap(receipt.totalAmount, lineTotal)
+      : false;
+  const lineItemsAreExclusive =
+    receipt.priceBasis === "tax_excluded" ||
+    Boolean(taxRate) ||
+    itemRatesExplain ||
+    taxGap;
+  const priceBasis =
+    receipt.priceBasis === "unknown" && lineItemsAreExclusive
+      ? "tax_excluded"
+      : receipt.priceBasis;
 
   const warnings = receipt.warnings.filter(
     (warning) =>
@@ -123,23 +160,55 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
       !warning.includes("税率を加味すると"),
   );
 
-  if (totalDifference !== null && totalDifference !== 0 && !taxRate) {
+  if (
+    priceBasis === "tax_included" &&
+    !lineItemsAreExclusive &&
+    totalDifference !== null &&
+    totalDifference !== 0
+  ) {
     warnings.push(
       `レシート合計：${receipt.totalAmount?.toLocaleString()}円 / 明細合計：${lineTotal?.toLocaleString()}円 / ${Math.abs(totalDifference).toLocaleString()}円一致しません。自動補正はしていません。`,
     );
   }
 
-  if (receipt.priceBasis === "unknown") {
+  if (priceBasis === "unknown") {
     warnings.push("税込・税抜を確認してください");
   }
 
   return {
     ...receipt,
+    priceBasis,
     lineTotal,
     totalDifference,
     warnings,
     taxReconciledRate: taxRate,
   };
+}
+
+export function replaceReceiptItems(
+  receipt: ReviewReceipt,
+  items: ReviewItem[],
+  options: { recalculateTotal?: boolean } = {},
+): ReviewReceipt {
+  const next = summarizeReceipt({
+    ...receipt,
+    items,
+    extractedItems: receipt.entryMode === "line_items" ? items : receipt.extractedItems,
+  });
+  if (
+    !options.recalculateTotal ||
+    next.lineTotal === null ||
+    next.priceBasis !== "tax_included" ||
+    next.taxReconciledRate !== null ||
+    (next.totalAmount !== null &&
+      looksLikeConsumptionTaxGap(next.totalAmount, next.lineTotal))
+  ) {
+    return next;
+  }
+  return summarizeReceipt({
+    ...next,
+    totalAmount: next.lineTotal,
+  });
 }
 
 export function applyEntryMode(

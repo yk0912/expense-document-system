@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CategoryMasterItem, ReviewItem } from "@/types/receipt";
 
@@ -9,6 +10,7 @@ type ReceiptItemEditorProps = {
   lumpSum?: boolean;
   namePlaceholder?: string;
   onChange: (next: ReviewItem) => void;
+  onRemove?: () => void;
 };
 
 export function ReceiptItemEditor({
@@ -17,6 +19,7 @@ export function ReceiptItemEditor({
   lumpSum = false,
   namePlaceholder,
   onChange,
+  onRemove,
 }: ReceiptItemEditorProps) {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
@@ -77,6 +80,16 @@ export function ReceiptItemEditor({
             ? "会議費または交際費を選んでください。"
             : "AIが区分を判断できませんでした。選択してください。"}
         </p>
+      ) : null}
+      {onRemove ? (
+        <Button
+          type="button"
+          variant="destructive"
+          className="h-11 w-full"
+          onClick={onRemove}
+        >
+          この商品を削除
+        </Button>
       ) : null}
     </div>
   );

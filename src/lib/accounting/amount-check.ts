@@ -10,6 +10,10 @@ function taxInclusiveCandidates(exclusive: number, rate: number): number[] {
   return [Math.round(raw), Math.floor(raw), Math.ceil(raw)];
 }
 
+function asTaxRateFraction(taxRate: number): number {
+  return taxRate > 1 ? taxRate / 100 : taxRate;
+}
+
 export function explainedByConsumptionTax(
   receiptTotal: number,
   lineTotal: number,
@@ -22,10 +26,34 @@ export function explainedByConsumptionTax(
     if (taxInclusiveCandidates(lineTotal, rate).includes(receiptTotal)) {
       return rate === 0.08 ? 8 : 10;
     }
-    if (taxInclusiveCandidates(receiptTotal, rate).includes(lineTotal)) {
-      return rate === 0.08 ? 8 : 10;
-    }
   }
 
   return null;
+}
+
+export function explainedByItemTaxRates(
+  receiptTotal: number,
+  items: Array<{ amount: number | null; taxRate: number | null }>,
+): boolean {
+  if (items.length === 0 || items.some((item) => item.amount === null || item.taxRate === null)) {
+    return false;
+  }
+
+  const inclusive = items.reduce((sum, item) => {
+    const amount = item.amount ?? 0;
+    const rate = asTaxRateFraction(item.taxRate ?? 0);
+    return sum + Math.round(amount * (1 + rate));
+  }, 0);
+
+  return inclusive === receiptTotal;
+}
+
+export function looksLikeConsumptionTaxGap(
+  receiptTotal: number,
+  lineTotal: number,
+): boolean {
+  if (lineTotal <= 0 || receiptTotal <= lineTotal) {
+    return false;
+  }
+  return (receiptTotal - lineTotal) / lineTotal <= 0.11;
 }

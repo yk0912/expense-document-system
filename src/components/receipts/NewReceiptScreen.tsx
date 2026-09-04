@@ -381,6 +381,20 @@ export function NewReceiptScreen() {
                   ),
                 })
               }
+              onRemove={
+                analysis.receipts.length > 1
+                  ? () =>
+                      setAnalysis({
+                        ...analysis,
+                        receipts: analysis.receipts
+                          .filter((current) => current.clientId !== receipt.clientId)
+                          .map((current, index) => ({
+                            ...current,
+                            receiptIndex: index + 1,
+                          })),
+                      })
+                  : undefined
+              }
             />
           ))}
           <Button

@@ -2,7 +2,9 @@
 
 import {
   applyEntryMode,
+  createEmptyReviewItem,
   defaultLumpItemName,
+  replaceReceiptItems,
   summarizeReceipt,
 } from "@/lib/accounting/analysis-mapper";
 import {
@@ -11,8 +13,10 @@ import {
 } from "@/lib/accounting/vendor-kind";
 import { dateInputValue } from "@/lib/accounting/date";
 import { ReceiptItemEditor } from "@/components/receipts/ReceiptItemEditor";
+import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -30,23 +34,44 @@ type ReceiptReviewCardProps = {
   receipt: ReviewReceipt;
   categories: CategoryMasterItem[];
   onChange: (next: ReviewReceipt) => void;
+  onRemove?: () => void;
 };
 
 export function ReceiptReviewCard({
   receipt,
   categories,
   onChange,
+  onRemove,
 }: ReceiptReviewCardProps) {
   const update = (patch: Partial<ReviewReceipt>) => {
     onChange(summarizeReceipt({ ...receipt, ...patch }));
   };
 
+  const updateItems = (
+    items: ReviewReceipt["items"],
+    recalculateTotal = false,
+  ) => {
+    onChange(replaceReceiptItems(receipt, items, { recalculateTotal }));
+  };
+
   return (
     <Card className="gap-0 overflow-hidden border-[3px] border-primary py-0 ring-0">
-      <CardHeader className="rounded-none bg-primary py-3">
+      <CardHeader className="items-center rounded-none bg-primary py-3">
         <CardTitle className="text-lg font-semibold text-primary-foreground">
           レシート {receipt.receiptIndex}
         </CardTitle>
+        {onRemove ? (
+          <CardAction className="self-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 border-primary-foreground/50 bg-transparent text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+              onClick={onRemove}
+            >
+              レシートを削除
+            </Button>
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-4 py-(--card-spacing)">
         <label className="block space-y-1">
@@ -162,35 +187,94 @@ export function ReceiptReviewCard({
                 onChange={(nextItem) => update({ items: [nextItem] })}
               />
             ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full"
+              onClick={() => {
+                const baseItems =
+                  receipt.extractedItems.length > 0
+                    ? receipt.extractedItems
+                    : [];
+                onChange(
+                  replaceReceiptItems(
+                    { ...receipt, entryMode: "line_items" },
+                    [...baseItems, createEmptyReviewItem()],
+                    { recalculateTotal: true },
+                  ),
+                );
+              }}
+            >
+              商品を追加
+            </Button>
           </div>
         ) : (
           <div className="space-y-2">
             <p className="text-sm font-medium">明細</p>
+            {receipt.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                商品がありません。読み取れなかった商品を追加してください。
+              </p>
+            ) : null}
             {receipt.items.map((item) => (
               <ReceiptItemEditor
                 key={item.clientId}
                 item={item}
                 categories={categories}
                 onChange={(nextItem) =>
-                  update({
-                    items: receipt.items.map((current) =>
+                  updateItems(
+                    receipt.items.map((current) =>
                       current.clientId === nextItem.clientId ? nextItem : current,
                     ),
-                  })
+                    nextItem.amount !== item.amount,
+                  )
+                }
+                onRemove={() =>
+                  updateItems(
+                    receipt.items.filter(
+                      (current) => current.clientId !== item.clientId,
+                    ),
+                    true,
+                  )
                 }
               />
             ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full"
+              onClick={() =>
+                updateItems([...receipt.items, createEmptyReviewItem()], true)
+              }
+            >
+              商品を追加
+            </Button>
           </div>
         )}
 
         <div className="space-y-1 text-sm">
-          <p>レシート合計 {receipt.totalAmount?.toLocaleString() ?? "—"}円</p>
+          <p>
+            レシート合計
+            {receipt.priceBasis === "tax_excluded" ? "（税込）" : ""}{" "}
+            {receipt.totalAmount?.toLocaleString() ?? "—"}円
+          </p>
           {receipt.entryMode === "line_items" ? (
-            <p>明細合計 {receipt.lineTotal?.toLocaleString() ?? "—"}円</p>
+            <p>
+              明細合計
+              {receipt.priceBasis === "tax_excluded" ? "（税抜）" : ""}{" "}
+              {receipt.lineTotal?.toLocaleString() ?? "—"}円
+            </p>
           ) : null}
         </div>
 
-        {receipt.taxReconciledRate ? (
+        {receipt.entryMode === "line_items" &&
+        receipt.priceBasis === "tax_excluded" ? (
+          <p className="text-sm text-muted-foreground">
+            {receipt.taxReconciledRate
+              ? `明細は税抜、レシート合計は税込です。消費税${receipt.taxReconciledRate}%を加味すると一致します。`
+              : "明細は税抜、レシート合計は税込です。この差は消費税のため、一致していなくても登録できます。"}
+          </p>
+        ) : receipt.taxReconciledRate ? (
           <p className="text-sm text-muted-foreground">
             明細は税抜、レシート合計は税込です。消費税{receipt.taxReconciledRate}%を加味すると一致します。
           </p>
