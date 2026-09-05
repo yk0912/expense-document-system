@@ -1,6 +1,38 @@
-import type { ReviewReceipt } from "@/types/receipt";
+import { itemTaxPercent } from "@/lib/accounting/amount-check";
+import type { ReviewItem, ReviewReceipt } from "@/types/receipt";
+
+export function missingItemSettings(
+  item: ReviewItem,
+  options: { lumpSum?: boolean } = {},
+): string[] {
+  const missing: string[] = [];
+  if (!item.name.trim()) {
+    missing.push(options.lumpSum ? "内容" : "商品名");
+  }
+  if (item.amount === null) {
+    missing.push("金額");
+  }
+  if (!item.category) {
+    missing.push("区分");
+  }
+  if (!options.lumpSum) {
+    if (item.taxRate === null) {
+      missing.push("税率");
+    }
+    const percent = itemTaxPercent(item.taxRate);
+    if (
+      (percent === 8 || percent === 10) &&
+      item.taxKind !== "included" &&
+      item.taxKind !== "excluded"
+    ) {
+      missing.push("内税/外税");
+    }
+  }
+  return missing;
+}
 
 export function isReceiptReadyToRegister(receipt: ReviewReceipt): boolean {
+  const lumpSum = receipt.entryMode === "lump_sum";
   return (
     Boolean(receipt.assignedStore) &&
     Boolean(receipt.transactionDate) &&
@@ -8,7 +40,7 @@ export function isReceiptReadyToRegister(receipt: ReviewReceipt): boolean {
     receipt.priceBasis !== "unknown" &&
     receipt.items.length > 0 &&
     receipt.items.every(
-      (item) => item.name.trim() && item.amount !== null && Boolean(item.category),
+      (item) => missingItemSettings(item, { lumpSum }).length === 0,
     )
   );
 }

@@ -23,6 +23,7 @@ import type {
   AnalyzeResponse,
   CategoryMasterItem,
   EntryMode,
+  PriceBasis,
   ReviewItem,
   ReviewReceipt,
   TaxKind,
@@ -136,7 +137,9 @@ function isGeneratedWarning(warning: string): boolean {
     warning.includes("税率を加味すると") ||
     warning.includes("各商品の税抜合計") ||
     warning.includes("レシート記載の") ||
-    warning.includes("対象合計")
+    warning.includes("対象合計") ||
+    warning.includes("税込・税抜を確認してください") ||
+    warning.includes("商品の金額が税込か税抜か確認してください")
   );
 }
 
@@ -184,6 +187,41 @@ function resolveReceiptTaxKinds(receipt: ReviewReceipt): {
     inferred8: !receipt.taxKind8Locked && inferred8 !== null,
     inferred10: !receipt.taxKind10Locked && inferred10 !== null,
   };
+}
+
+function inferPriceBasisFromTaxKinds(
+  items: ReviewReceipt["items"],
+  taxKind8: TaxKind | null,
+  taxKind10: TaxKind | null,
+): PriceBasis | null {
+  let included = false;
+  let excluded = false;
+  let sawTaxable = false;
+  for (const item of items) {
+    const percent = itemTaxPercent(item.taxRate);
+    if (percent !== 8 && percent !== 10) {
+      continue;
+    }
+    const kind =
+      item.taxKind === "included" || item.taxKind === "excluded"
+        ? item.taxKind
+        : percent === 8
+          ? taxKind8
+          : taxKind10;
+    if (kind !== "included" && kind !== "excluded") {
+      return null;
+    }
+    sawTaxable = true;
+    if (kind === "included") {
+      included = true;
+    } else {
+      excluded = true;
+    }
+  }
+  if (!sawTaxable || (included && excluded)) {
+    return null;
+  }
+  return included ? "tax_included" : "tax_excluded";
 }
 
 function applyTaxKindsToItems(
@@ -237,9 +275,8 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
 
   if (receipt.entryMode === "lump_sum") {
     const amount = receipt.items[0]?.amount ?? printed.totalAmount;
-    if (receipt.priceBasis === "unknown") {
-      warnings.push("税込・税抜を確認してください");
-    }
+    const priceBasis =
+      receipt.priceBasis === "unknown" ? "tax_included" : receipt.priceBasis;
     return {
       ...receipt,
       ...printed,
@@ -247,6 +284,7 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
       extractedItems,
       taxKind8,
       taxKind10,
+      priceBasis,
       totalAmount: amount,
       lineTotal: amount,
       itemTaxAmount8: fromItems.tax8,
@@ -282,13 +320,28 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     Boolean(taxRate) ||
     itemRatesExplain ||
     taxGap;
+  const amountsAlreadyInclusive =
+    printed.totalAmount !== null &&
+    lineTotal !== null &&
+    fromItems.inclusiveTotal !== null &&
+    printed.totalAmount === lineTotal &&
+    printed.totalAmount === fromItems.inclusiveTotal;
+  const priceBasisFromKinds = inferPriceBasisFromTaxKinds(
+    items,
+    taxKind8,
+    taxKind10,
+  );
   const priceBasis =
-    receipt.priceBasis === "unknown" && lineItemsAreExclusive
-      ? "tax_excluded"
-      : receipt.priceBasis;
+    receipt.priceBasis !== "unknown"
+      ? receipt.priceBasis
+      : lineItemsAreExclusive
+        ? "tax_excluded"
+        : amountsAlreadyInclusive
+          ? "tax_included"
+          : (priceBasisFromKinds ?? "unknown");
 
   if (priceBasis === "unknown") {
-    warnings.push("税込・税抜を確認してください");
+    warnings.push("商品の金額が税込か税抜か確認してください");
   }
   return {
     ...receipt,

@@ -51,6 +51,39 @@ export function floorInclusiveAmount(exclusive: number, ratePercent: number): nu
   return exclusive + floorConsumptionTax(exclusive, ratePercent);
 }
 
+export function distributeExclusiveInclusive(
+  amounts: number[],
+  ratePercent: number,
+): number[] {
+  if (amounts.length === 0) {
+    return [];
+  }
+  if (ratePercent <= 0) {
+    return [...amounts];
+  }
+  const sum = amounts.reduce((total, amount) => total + amount, 0);
+  const groupTax = floorConsumptionTax(sum, ratePercent);
+  const taxes = amounts.map((amount) => floorConsumptionTax(amount, ratePercent));
+  let remainder = groupTax - taxes.reduce((total, tax) => total + tax, 0);
+  const ranked = amounts
+    .map((amount, index) => ({
+      index,
+      frac: (amount * ratePercent) / 100 - taxes[index],
+    }))
+    .sort((left, right) =>
+      remainder >= 0 ? right.frac - left.frac : left.frac - right.frac,
+    );
+  for (const { index } of ranked) {
+    if (remainder === 0) {
+      break;
+    }
+    const step = remainder > 0 ? 1 : -1;
+    taxes[index] += step;
+    remainder -= step;
+  }
+  return amounts.map((amount, index) => amount + taxes[index]);
+}
+
 export function resolveItemTaxKind(
   item: { taxRate: number | null; taxKind?: TaxKind | null },
   defaults: { taxKind8?: TaxKind | null; taxKind10?: TaxKind | null } = {},

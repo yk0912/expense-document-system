@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 import { defaultTaxRateForCategory } from "@/lib/accounting/amount-check";
+import { missingItemSettings } from "@/lib/accounting/registration";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   ITEM_TAX_RATES,
   type CategoryMasterItem,
@@ -35,9 +37,27 @@ export function ReceiptItemEditor({
   onRemove,
 }: ReceiptItemEditorProps) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const missing = missingItemSettings(item, { lumpSum });
+  const needsName = !item.name.trim();
+  const needsAmount = item.amount === null;
+  const needsCategory = !item.category;
+  const needsTaxRate = !lumpSum && item.taxRate === null;
+  const needsTaxKind = missing.includes("内税/外税");
 
   return (
-    <div className="space-y-2 rounded-lg border border-border p-3">
+    <div
+      className={cn(
+        "space-y-2 rounded-lg border p-3",
+        missing.length > 0
+          ? "border-destructive bg-destructive/5"
+          : "border-border",
+      )}
+    >
+      {missing.length > 0 ? (
+        <p className="rounded-md bg-destructive px-2.5 py-1.5 text-sm font-semibold text-destructive-foreground">
+          設定してください：{missing.join("、")}
+        </p>
+      ) : null}
       <label className="block space-y-1">
         <span className="text-xs text-muted-foreground">
           {lumpSum ? "内容" : "商品名"}
@@ -46,6 +66,7 @@ export function ReceiptItemEditor({
           value={item.name}
           placeholder={namePlaceholder ?? (lumpSum ? "合計" : "商品名")}
           className="h-11"
+          aria-invalid={needsName}
           onChange={(event) =>
             onChange({ ...item, name: event.target.value, requiresReview: false })
           }
@@ -60,6 +81,7 @@ export function ReceiptItemEditor({
             inputMode="numeric"
             className="h-11"
             value={item.amount ?? ""}
+            aria-invalid={needsAmount}
             onChange={(event) => {
               const raw = event.target.value;
               onChange({
@@ -72,8 +94,14 @@ export function ReceiptItemEditor({
         <label className="space-y-1">
           <span className="text-xs text-muted-foreground">経費区分</span>
           <select
-            className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+            className={cn(
+              "h-11 w-full rounded-lg border bg-background px-2.5 text-base",
+              needsCategory
+                ? "border-destructive ring-3 ring-destructive/20"
+                : "border-input",
+            )}
             value={item.category ?? ""}
+            aria-invalid={needsCategory}
             onChange={(event) => {
               const category = event.target.value || null;
               const taxRate = defaultTaxRateForCategory(category, categories);
@@ -105,8 +133,14 @@ export function ReceiptItemEditor({
           <label className="space-y-1">
             <span className="text-xs text-muted-foreground">消費税率</span>
             <select
-              className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+              className={cn(
+                "h-11 w-full rounded-lg border bg-background px-2.5 text-base",
+                needsTaxRate
+                  ? "border-destructive ring-3 ring-destructive/20"
+                  : "border-input",
+              )}
               value={item.taxRate ?? 0}
+              aria-invalid={needsTaxRate}
               onChange={(event) => {
                 const taxRate = Number(event.target.value) as ItemTaxRate;
                 const taxKind =
@@ -132,8 +166,14 @@ export function ReceiptItemEditor({
           <label className="space-y-1">
             <span className="text-xs text-muted-foreground">内税 / 外税</span>
             <select
-              className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+              className={cn(
+                "h-11 w-full rounded-lg border bg-background px-2.5 text-base",
+                needsTaxKind
+                  ? "border-destructive ring-3 ring-destructive/20"
+                  : "border-input",
+              )}
               value={item.taxKind ?? ""}
+              aria-invalid={needsTaxKind}
               onChange={(event) =>
                 onChange({
                   ...item,
@@ -148,11 +188,9 @@ export function ReceiptItemEditor({
           </label>
         </div>
       )}
-      {item.requiresReview || !item.category ? (
+      {missing.length > 0 && lumpSum && missing.includes("区分") ? (
         <p className="text-sm text-destructive">
-          {lumpSum
-            ? "会議費または交際費を選んでください。"
-            : "AIが区分を判断できませんでした。選択してください。"}
+          会議費または交際費を選んでください。
         </p>
       ) : null}
       {onRemove ? (

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { itemTaxPercent, printedInclusiveFromGroups } from "@/lib/accounting/amount-check";
+import { missingItemSettings } from "@/lib/accounting/registration";
 import {
   PRICE_BASES,
   STORES,
@@ -61,7 +62,7 @@ function CompactYenInput({
   return (
     <Input
       inputMode="numeric"
-      className="h-9 min-w-20 tabular-nums"
+      className="h-8 w-full min-w-0 px-1.5 text-sm tabular-nums"
       value={value ?? ""}
       onChange={(event) => onChange(parseYenInput(event.target.value))}
     />
@@ -134,6 +135,12 @@ export function ReceiptReviewCard({
   });
   const itemInclusive = receipt.itemInclusiveTotal;
   const showItemCalc = receipt.entryMode === "line_items";
+  const incompleteItemCount = receipt.items.filter(
+    (item) =>
+      missingItemSettings(item, {
+        lumpSum: receipt.entryMode === "lump_sum",
+      }).length > 0,
+  ).length;
 
   const setRateTaxKind = (rate: 8 | 10, taxKind: TaxKind | null) => {
     const patch =
@@ -272,6 +279,11 @@ export function ReceiptReviewCard({
         {receipt.entryMode === "lump_sum" ? (
           <div className="space-y-2">
             <p className="text-sm font-medium">合計計上</p>
+            {incompleteItemCount > 0 ? (
+              <p className="rounded-md bg-destructive px-2.5 py-1.5 text-sm font-semibold text-destructive-foreground">
+                設定してください（未設定の項目があります）
+              </p>
+            ) : null}
             <p className="text-sm text-muted-foreground">
               商品名は使わず、レシート合計を1件として計上します。経費区分は会議費または交際費などを選んでください。
             </p>
@@ -310,6 +322,11 @@ export function ReceiptReviewCard({
         ) : (
           <div className="space-y-2">
             <p className="text-sm font-medium">明細</p>
+            {incompleteItemCount > 0 ? (
+              <p className="rounded-md bg-destructive px-2.5 py-1.5 text-sm font-semibold text-destructive-foreground">
+                設定してください（{incompleteItemCount}件）
+              </p>
+            ) : null}
             {receipt.items.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 商品がありません。読み取れなかった商品を追加してください。
@@ -398,14 +415,20 @@ export function ReceiptReviewCard({
               </label>
             </div>
           ) : null}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[22rem] border-collapse text-sm">
+          <div>
+            <table className="w-full table-fixed border-collapse text-xs">
+              <colgroup>
+                <col />
+                <col className="w-14" />
+                {showItemCalc ? <col className="w-[4.25rem]" /> : null}
+                {showItemCalc ? <col className="w-10" /> : null}
+              </colgroup>
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-1.5 pr-2 font-medium">項目</th>
-                  <th className="py-1.5 pr-2 font-medium">レシート</th>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-1.5 pr-1 font-medium">項目</th>
+                  <th className="py-1.5 pr-1 font-medium">レシート</th>
                   {showItemCalc ? (
-                    <th className="py-1.5 pr-2 font-medium">商品計算</th>
+                    <th className="py-1.5 pr-1 font-medium">商品計算</th>
                   ) : null}
                   {showItemCalc ? (
                     <th className="py-1.5 font-medium">照合</th>
@@ -414,8 +437,8 @@ export function ReceiptReviewCard({
               </thead>
               <tbody>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">小計（税抜）</td>
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-1">小計（税抜）</td>
+                  <td className="py-1.5 pr-1">
                     <CompactYenInput
                       value={receipt.extractedSubtotalAmount}
                       onChange={(value) =>
@@ -424,7 +447,7 @@ export function ReceiptReviewCard({
                     />
                   </td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">{yen(receipt.lineTotal)}</td>
+                    <td className="py-1.5 pr-1 tabular-nums">{yen(receipt.lineTotal)}</td>
                   ) : null}
                   {showItemCalc ? (
                     <td className="py-1.5">
@@ -436,8 +459,8 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">8%対象合計</td>
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-1">8%対象合計</td>
+                  <td className="py-1.5 pr-1">
                     <CompactYenInput
                       value={receipt.extractedTaxableAmount8}
                       onChange={(value) =>
@@ -446,7 +469,7 @@ export function ReceiptReviewCard({
                     />
                   </td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">
+                    <td className="py-1.5 pr-1 tabular-nums">
                       {yen(receipt.itemTaxableAmount8)}
                     </td>
                   ) : null}
@@ -460,15 +483,15 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">消費税8%</td>
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-1">消費税8%</td>
+                  <td className="py-1.5 pr-1">
                     <CompactYenInput
                       value={receipt.extractedTaxAmount8}
                       onChange={(value) => update({ extractedTaxAmount8: value })}
                     />
                   </td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">
+                    <td className="py-1.5 pr-1 tabular-nums">
                       {yen(receipt.itemTaxAmount8)}
                     </td>
                   ) : null}
@@ -482,8 +505,8 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">10%対象合計</td>
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-1">10%対象合計</td>
+                  <td className="py-1.5 pr-1">
                     <CompactYenInput
                       value={receipt.extractedTaxableAmount10}
                       onChange={(value) =>
@@ -492,7 +515,7 @@ export function ReceiptReviewCard({
                     />
                   </td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">
+                    <td className="py-1.5 pr-1 tabular-nums">
                       {yen(receipt.itemTaxableAmount10)}
                     </td>
                   ) : null}
@@ -506,8 +529,8 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">消費税10%</td>
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-1">消費税10%</td>
+                  <td className="py-1.5 pr-1">
                     <CompactYenInput
                       value={receipt.extractedTaxAmount10}
                       onChange={(value) =>
@@ -516,7 +539,7 @@ export function ReceiptReviewCard({
                     />
                   </td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">
+                    <td className="py-1.5 pr-1 tabular-nums">
                       {yen(receipt.itemTaxAmount10)}
                     </td>
                   ) : null}
@@ -530,10 +553,10 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">税込再計</td>
-                  <td className="py-1.5 pr-2 tabular-nums">{yen(printedTaxSum)}</td>
+                  <td className="py-1.5 pr-1">税込再計</td>
+                  <td className="py-1.5 pr-1 tabular-nums">{yen(printedTaxSum)}</td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">{yen(itemInclusive)}</td>
+                    <td className="py-1.5 pr-1 tabular-nums">{yen(itemInclusive)}</td>
                   ) : null}
                   {showItemCalc ? (
                     <td className="py-1.5">
@@ -542,8 +565,8 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr>
-                  <td className="py-1.5 pr-2">合計（税込）</td>
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-1">合計（税込）</td>
+                  <td className="py-1.5 pr-1">
                     <CompactYenInput
                       value={receipt.extractedTotalAmount}
                       onChange={(value) =>
@@ -552,7 +575,7 @@ export function ReceiptReviewCard({
                     />
                   </td>
                   {showItemCalc ? (
-                    <td className="py-1.5 pr-2 tabular-nums">{yen(itemInclusive)}</td>
+                    <td className="py-1.5 pr-1 tabular-nums">{yen(itemInclusive)}</td>
                   ) : null}
                   {showItemCalc ? (
                     <td className="py-1.5">
