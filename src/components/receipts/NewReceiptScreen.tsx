@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/receipts/ProgressBar";
 import { ReceiptCapture } from "@/components/receipts/ReceiptCapture";
 import { ReceiptPreview } from "@/components/receipts/ReceiptPreview";
 import { ReceiptReviewCard } from "@/components/receipts/ReceiptReviewCard";
+import { FixedErrorBanner } from "@/components/feedback/FixedErrorBanner";
 import { Button } from "@/components/ui/button";
 import { isReceiptReadyToRegister } from "@/lib/accounting/registration";
 import {
@@ -212,8 +213,16 @@ export function NewReceiptScreen() {
       }
       setProgress({ label: "登録が完了しました", percent: 100 });
       setResults(payload.results);
-      if (payload.results.every((result) => !result.ok)) {
-        setError(payload.results[0]?.error ?? payload.error ?? "登録に失敗しました。");
+      const failed = payload.results.filter((result) => !result.ok);
+      if (failed.length > 0) {
+        setError(
+          failed
+            .map(
+              (result) =>
+                result.error ?? `レシート ${result.receiptIndex} は未完了です`,
+            )
+            .join("\n"),
+        );
       }
     } catch (registerError) {
       setError(
@@ -273,14 +282,15 @@ export function NewReceiptScreen() {
               void handleFile(file);
             }}
           />
+          {error ? (
+            <p className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
           {isCompressing ? (
             <p className="text-sm text-muted-foreground">画像を圧縮しています…</p>
           ) : null}
         </>
-      ) : null}
-
-      {error ? (
-        <p className="whitespace-pre-wrap text-sm text-destructive">{error}</p>
       ) : null}
 
       {image && !analysis ? (
@@ -291,6 +301,11 @@ export function NewReceiptScreen() {
               <p className="text-center text-base font-medium">
                 この写真から情報を読み取りますか？
               </p>
+              {error ? (
+                <p className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              ) : null}
               <Button
                 type="button"
                 className="h-14 w-full text-base"
@@ -397,6 +412,11 @@ export function NewReceiptScreen() {
               }
             />
           ))}
+          {error ? (
+            <p className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
           <Button
             type="button"
             className="h-14 w-full text-base"
@@ -446,6 +466,11 @@ export function NewReceiptScreen() {
               <ProgressBar label={progress.label} percent={progress.percent} />
             </div>
           </div>
+        </>
+      ) : error ? (
+        <>
+          <div className="h-28" />
+          <FixedErrorBanner message={error} onDismiss={() => setError(null)} />
         </>
       ) : null}
     </div>
