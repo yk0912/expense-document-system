@@ -450,7 +450,7 @@ export async function appendReceiptRows(
       const foundPreview =
         found.length > 0 ? found.slice(0, 20).join("、") : "なし";
       throw new Error(
-        `「${layout.title}」シートで次の区分列を特定できませんでした: ${missingCategories.join("、")}。\nシート上で認識できた区分列: ${foundPreview}。\n列名の表記ゆれか、書き込み先シートとフォーマットの列名の違いが原因です。合計金額の差とは別の問題です。`,
+        `「${layout.title}」シートで次の区分列を特定できませんでした: ${missingCategories.join("、")}。\nシート上で認識できた区分列: ${foundPreview}`,
       );
     }
 

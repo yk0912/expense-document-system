@@ -30,20 +30,61 @@ const PRICE_LABELS: Record<(typeof PRICE_BASES)[number], string> = {
   unknown: "未確認",
 };
 
-function amountTaxSuffix(
-  priceBasis: ReviewReceipt["priceBasis"],
-  side: "receipt" | "items",
-): string {
-  if (priceBasis === "unknown") {
-    return "（税込／税抜未確認）";
+function yen(value: number | null): string {
+  return value === null ? "—" : `${value.toLocaleString()}円`;
+}
+
+function parseYenInput(raw: string): number | null {
+  const digits = raw.replace(/[^\d-]/g, "");
+  if (digits === "" || digits === "-") {
+    return null;
   }
-  if (side === "items" && priceBasis === "tax_excluded") {
-    return "（税抜）";
-  }
-  if (side === "receipt" && priceBasis === "tax_excluded") {
-    return "（税込）";
-  }
-  return "（税込）";
+  return Number(digits);
+}
+
+function PrintedAmountField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <Input
+        inputMode="numeric"
+        className="h-11"
+        value={value ?? ""}
+        onChange={(event) => onChange(parseYenInput(event.target.value))}
+      />
+    </label>
+  );
+}
+
+function AmountLine({
+  label,
+  value,
+  compare,
+}: {
+  label: string;
+  value: number | null;
+  compare?: number | null;
+}) {
+  const comparable = compare !== undefined && compare !== null && value !== null;
+  const mismatch = comparable && value !== compare;
+  return (
+    <p className={mismatch ? "text-destructive" : undefined}>
+      {label} {yen(value)}
+      {comparable ? (
+        <span className="ml-2 text-xs">
+          {mismatch ? "不一致" : "一致"}
+        </span>
+      ) : null}
+    </p>
+  );
 }
 
 type ReceiptReviewCardProps = {
@@ -268,32 +309,74 @@ export function ReceiptReviewCard({
           </div>
         )}
 
-        <div className="space-y-1 text-sm">
-          <p>
-            レシート合計{amountTaxSuffix(receipt.priceBasis, "receipt")}{" "}
-            {receipt.totalAmount?.toLocaleString() ?? "—"}円
-          </p>
+        <div className="space-y-3 text-sm">
+          <div className="space-y-2">
+            <div>
+              <p className="font-medium">レシート記載</p>
+              <p className="text-xs text-muted-foreground">
+                読み取りが違う場合は修正してください
+              </p>
+            </div>
+            <PrintedAmountField
+              label="小計（税抜・円）"
+              value={receipt.extractedSubtotalAmount}
+              onChange={(value) => update({ extractedSubtotalAmount: value })}
+            />
+            <PrintedAmountField
+              label="消費税8%対象合計（円）"
+              value={receipt.extractedTaxableAmount8}
+              onChange={(value) => update({ extractedTaxableAmount8: value })}
+            />
+            <PrintedAmountField
+              label="消費税 8%（円）"
+              value={receipt.extractedTaxAmount8}
+              onChange={(value) => update({ extractedTaxAmount8: value })}
+            />
+            <PrintedAmountField
+              label="消費税10%対象合計（円）"
+              value={receipt.extractedTaxableAmount10}
+              onChange={(value) => update({ extractedTaxableAmount10: value })}
+            />
+            <PrintedAmountField
+              label="消費税 10%（円）"
+              value={receipt.extractedTaxAmount10}
+              onChange={(value) => update({ extractedTaxAmount10: value })}
+            />
+            <PrintedAmountField
+              label="レシート合計（税込・円）"
+              value={receipt.extractedTotalAmount}
+              onChange={(value) =>
+                update({ extractedTotalAmount: value, totalAmount: value })
+              }
+            />
+          </div>
           {receipt.entryMode === "line_items" ? (
-            <p>
-              各商品価格の合計{amountTaxSuffix(receipt.priceBasis, "items")}{" "}
-              {receipt.lineTotal?.toLocaleString() ?? "—"}円
-            </p>
+            <div className="space-y-1">
+              <p className="font-medium">各商品から計算</p>
+              <p>各商品の税抜合計 {yen(receipt.lineTotal)}</p>
+              <AmountLine
+                label="8%対象合計"
+                value={receipt.itemTaxableAmount8}
+                compare={receipt.taxableAmount8}
+              />
+              <AmountLine
+                label="消費税 8%"
+                value={receipt.itemTaxAmount8}
+                compare={receipt.taxAmount8}
+              />
+              <AmountLine
+                label="10%対象合計"
+                value={receipt.itemTaxableAmount10}
+                compare={receipt.taxableAmount10}
+              />
+              <AmountLine
+                label="消費税 10%"
+                value={receipt.itemTaxAmount10}
+                compare={receipt.taxAmount10}
+              />
+            </div>
           ) : null}
         </div>
-
-        {receipt.entryMode === "line_items" &&
-        receipt.priceBasis === "tax_excluded" ? (
-          <p className="text-sm text-muted-foreground">
-            {receipt.taxReconciledRate
-              ? `各商品価格の合計は税抜、レシート合計は税込です。消費税${receipt.taxReconciledRate}%を加味すると一致します。`
-              : "各商品価格の合計は税抜、レシート合計は税込です。この差は消費税のため、一致していなくても登録できます。"}
-          </p>
-        ) : receipt.taxReconciledRate ? (
-          <p className="text-sm text-muted-foreground">
-            各商品価格の合計は税抜、レシート合計は税込です。消費税
-            {receipt.taxReconciledRate}%を加味すると一致します。
-          </p>
-        ) : null}
 
         {receipt.warnings.length > 0 ? (
           <ul className="space-y-1 text-sm text-destructive">

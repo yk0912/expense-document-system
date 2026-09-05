@@ -13,17 +13,22 @@ export function FixedErrorBanner({ message, onDismiss }: FixedErrorBannerProps) 
       <div
         role="alert"
         aria-live="assertive"
-        className="mx-auto flex w-full max-w-md items-start gap-2 rounded-xl bg-destructive px-4 py-3 text-sm text-white shadow-[0_-8px_24px_rgba(0,0,0,0.16)]"
+        className="mx-auto flex w-full max-w-md max-h-[min(40vh,16rem)] flex-col overflow-hidden rounded-xl bg-destructive text-sm text-white shadow-[0_-8px_24px_rgba(0,0,0,0.16)]"
       >
-        <p className="min-w-0 flex-1 whitespace-pre-wrap leading-6">{message}</p>
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-11 shrink-0 px-3 text-white hover:bg-white/15 hover:text-white"
-          onClick={onDismiss}
-        >
-          閉じる
-        </Button>
+        <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2">
+          <p className="font-medium">エラー</p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-10 shrink-0 px-3 text-white hover:bg-white/15 hover:text-white"
+            onClick={onDismiss}
+          >
+            閉じる
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3">
+          <p className="whitespace-pre-wrap leading-6">{message}</p>
+        </div>
       </div>
     </div>
   );

@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 
+import { defaultTaxRateForCategory } from "@/lib/accounting/amount-check";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { CategoryMasterItem, ReviewItem } from "@/types/receipt";
+import {
+  ITEM_TAX_RATES,
+  type CategoryMasterItem,
+  type ItemTaxRate,
+  type ReviewItem,
+} from "@/types/receipt";
 
 type ReceiptItemEditorProps = {
   item: ReviewItem;
@@ -42,7 +48,9 @@ export function ReceiptItemEditor({
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1">
-          <span className="text-xs text-muted-foreground">金額（円）</span>
+          <span className="text-xs text-muted-foreground">
+            {lumpSum ? "金額（円）" : "金額（税抜・円）"}
+          </span>
           <Input
             inputMode="numeric"
             className="h-11"
@@ -61,13 +69,15 @@ export function ReceiptItemEditor({
           <select
             className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
             value={item.category ?? ""}
-            onChange={(event) =>
+            onChange={(event) => {
+              const category = event.target.value || null;
               onChange({
                 ...item,
-                category: event.target.value || null,
+                category,
+                taxRate: defaultTaxRateForCategory(category, categories),
                 requiresReview: event.target.value === "",
-              })
-            }
+              });
+            }}
           >
             <option value="">選択してください</option>
             {categories.map((category) => (
@@ -78,6 +88,27 @@ export function ReceiptItemEditor({
           </select>
         </label>
       </div>
+      {lumpSum ? null : (
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">消費税</span>
+          <select
+            className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+            value={item.taxRate ?? 0}
+            onChange={(event) =>
+              onChange({
+                ...item,
+                taxRate: Number(event.target.value) as ItemTaxRate,
+              })
+            }
+          >
+            {ITEM_TAX_RATES.map((rate) => (
+              <option key={rate} value={rate}>
+                {rate}%
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {item.requiresReview || !item.category ? (
         <p className="text-sm text-destructive">
           {lumpSum

@@ -10,6 +10,9 @@ export type VendorKind = (typeof VENDOR_KINDS)[number];
 export const ENTRY_MODES = ["lump_sum", "line_items"] as const;
 export type EntryMode = (typeof ENTRY_MODES)[number];
 
+export const ITEM_TAX_RATES = [0, 1, 8, 10] as const;
+export type ItemTaxRate = (typeof ITEM_TAX_RATES)[number];
+
 export type CategoryMasterItem = {
   name: string;
   examples: string | null;
@@ -39,6 +42,21 @@ export type ReviewReceipt = {
   transactionDate: string | null;
   vendorName: string;
   totalAmount: number | null;
+  subtotalAmount: number | null;
+  taxAmount8: number | null;
+  taxAmount10: number | null;
+  extractedSubtotalAmount: number | null;
+  extractedTaxAmount8: number | null;
+  extractedTaxAmount10: number | null;
+  extractedTaxableAmount8: number | null;
+  extractedTaxableAmount10: number | null;
+  extractedTotalAmount: number | null;
+  taxableAmount8: number | null;
+  taxableAmount10: number | null;
+  itemTaxableAmount8: number | null;
+  itemTaxableAmount10: number | null;
+  itemTaxAmount8: number | null;
+  itemTaxAmount10: number | null;
   priceBasis: PriceBasis;
   vendorKind: VendorKind;
   entryMode: EntryMode;

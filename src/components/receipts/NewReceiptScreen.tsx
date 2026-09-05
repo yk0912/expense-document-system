@@ -216,12 +216,12 @@ export function NewReceiptScreen() {
       const failed = payload.results.filter((result) => !result.ok);
       if (failed.length > 0) {
         setError(
-          failed
-            .map(
+          [...new Set(
+            failed.map(
               (result) =>
                 result.error ?? `レシート ${result.receiptIndex} は未完了です`,
-            )
-            .join("\n"),
+            ),
+          )].join("\n"),
         );
       }
     } catch (registerError) {

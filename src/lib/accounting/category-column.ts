@@ -65,11 +65,12 @@ export function remapCategoryAmounts(
   amounts: Map<string, number>,
   available: Iterable<string>,
 ): { amounts: Map<string, number>; missing: string[] } {
+  const columns = [...available];
   const remapped = new Map<string, number>();
   const missing: string[] = [];
 
   for (const [name, amount] of amounts) {
-    const resolved = matchCategoryName(name, available);
+    const resolved = matchCategoryName(name, columns);
     if (!resolved) {
       missing.push(name);
       continue;
