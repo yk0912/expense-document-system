@@ -1,4 +1,4 @@
-import { itemTaxPercent } from "@/lib/accounting/amount-check";
+import { floorInclusiveAmount, itemTaxPercent } from "@/lib/accounting/amount-check";
 
 export function sumAmountsByCategory(
   items: Array<{ category: string | null; amount: number | null }>,
@@ -24,7 +24,7 @@ export function sheetInclusiveAmount(
     return amount;
   }
   const percent = itemTaxPercent(taxRate) ?? 0;
-  return Math.round(amount * (1 + percent / 100));
+  return floorInclusiveAmount(amount, percent);
 }
 
 export function sumSheetCategoryAmounts(

@@ -12,8 +12,12 @@ function taxInclusiveCandidates(exclusive: number, rate: number): number[] {
   return [Math.round(raw), Math.floor(raw), Math.ceil(raw)];
 }
 
-function asTaxRateFraction(taxRate: number): number {
-  return taxRate > 1 ? taxRate / 100 : taxRate;
+export function floorConsumptionTax(exclusive: number, ratePercent: number): number {
+  return Math.floor(exclusive * (ratePercent / 100));
+}
+
+export function floorInclusiveAmount(exclusive: number, ratePercent: number): number {
+  return exclusive + floorConsumptionTax(exclusive, ratePercent);
 }
 
 export function explainedByConsumptionTax(
@@ -43,8 +47,8 @@ export function explainedByItemTaxRates(
 
   const inclusive = items.reduce((sum, item) => {
     const amount = item.amount ?? 0;
-    const rate = asTaxRateFraction(item.taxRate ?? 0);
-    return sum + Math.round(amount * (1 + rate));
+    const percent = itemTaxPercent(item.taxRate) ?? 0;
+    return sum + floorInclusiveAmount(amount, percent);
   }, 0);
 
   return inclusive === receiptTotal;
@@ -172,8 +176,8 @@ export function taxBreakdownFromItems(
   const taxable10 = amounts10.length > 0 ? amounts10.reduce((sum, amount) => sum + amount, 0) : null;
 
   return {
-    tax8: taxable8 === null ? null : Math.round(taxable8 * 0.08),
-    tax10: taxable10 === null ? null : Math.round(taxable10 * 0.1),
+    tax8: taxable8 === null ? null : floorConsumptionTax(taxable8, 8),
+    tax10: taxable10 === null ? null : floorConsumptionTax(taxable10, 10),
     taxable8,
     taxable10,
     complete,
