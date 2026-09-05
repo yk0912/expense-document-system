@@ -245,11 +245,11 @@ async function loadSheetLayout(
     throw new Error(`「${preferredTitle}」シートが見つかりません。`);
   }
 
-  const headerResponse = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${quotedSheet(matched.title)}!1:8`,
-    valueRenderOption: "UNFORMATTED_VALUE",
-  });
+    const headerResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${quotedSheet(matched.title)}!1:8`,
+      valueRenderOption: "FORMATTED_VALUE",
+    });
   const headerRows = ((headerResponse.data.values ?? []) as unknown[][]).map(
     (row) => row.map(toStringCell),
   );
@@ -446,8 +446,11 @@ export async function appendReceiptRows(
       ...new Set(preparedWrites.flatMap((item) => item.missing)),
     ];
     if (missingCategories.length > 0) {
+      const found = [...layout.columns.categories.keys()];
+      const foundPreview =
+        found.length > 0 ? found.slice(0, 20).join("、") : "なし";
       throw new Error(
-        `経費集計に次の区分列がありません: ${missingCategories.join("、")}`,
+        `「${layout.title}」シートで次の区分列を特定できませんでした: ${missingCategories.join("、")}。\nシート上で認識できた区分列: ${foundPreview}。\n列名の表記ゆれか、書き込み先シートとフォーマットの列名の違いが原因です。合計金額の差とは別の問題です。`,
       );
     }
 

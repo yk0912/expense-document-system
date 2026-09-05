@@ -30,6 +30,22 @@ const PRICE_LABELS: Record<(typeof PRICE_BASES)[number], string> = {
   unknown: "未確認",
 };
 
+function amountTaxSuffix(
+  priceBasis: ReviewReceipt["priceBasis"],
+  side: "receipt" | "items",
+): string {
+  if (priceBasis === "unknown") {
+    return "（税込／税抜未確認）";
+  }
+  if (side === "items" && priceBasis === "tax_excluded") {
+    return "（税抜）";
+  }
+  if (side === "receipt" && priceBasis === "tax_excluded") {
+    return "（税込）";
+  }
+  return "（税込）";
+}
+
 type ReceiptReviewCardProps = {
   receipt: ReviewReceipt;
   categories: CategoryMasterItem[];
@@ -254,14 +270,12 @@ export function ReceiptReviewCard({
 
         <div className="space-y-1 text-sm">
           <p>
-            レシート合計
-            {receipt.priceBasis === "tax_excluded" ? "（税込）" : ""}{" "}
+            レシート合計{amountTaxSuffix(receipt.priceBasis, "receipt")}{" "}
             {receipt.totalAmount?.toLocaleString() ?? "—"}円
           </p>
           {receipt.entryMode === "line_items" ? (
             <p>
-              明細合計
-              {receipt.priceBasis === "tax_excluded" ? "（税抜）" : ""}{" "}
+              各商品価格の合計{amountTaxSuffix(receipt.priceBasis, "items")}{" "}
               {receipt.lineTotal?.toLocaleString() ?? "—"}円
             </p>
           ) : null}
@@ -271,12 +285,13 @@ export function ReceiptReviewCard({
         receipt.priceBasis === "tax_excluded" ? (
           <p className="text-sm text-muted-foreground">
             {receipt.taxReconciledRate
-              ? `明細は税抜、レシート合計は税込です。消費税${receipt.taxReconciledRate}%を加味すると一致します。`
-              : "明細は税抜、レシート合計は税込です。この差は消費税のため、一致していなくても登録できます。"}
+              ? `各商品価格の合計は税抜、レシート合計は税込です。消費税${receipt.taxReconciledRate}%を加味すると一致します。`
+              : "各商品価格の合計は税抜、レシート合計は税込です。この差は消費税のため、一致していなくても登録できます。"}
           </p>
         ) : receipt.taxReconciledRate ? (
           <p className="text-sm text-muted-foreground">
-            明細は税抜、レシート合計は税込です。消費税{receipt.taxReconciledRate}%を加味すると一致します。
+            各商品価格の合計は税抜、レシート合計は税込です。消費税
+            {receipt.taxReconciledRate}%を加味すると一致します。
           </p>
         ) : null}
 

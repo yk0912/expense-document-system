@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CategoryMasterItem, ReviewItem } from "@/types/receipt";
@@ -21,6 +23,8 @@ export function ReceiptItemEditor({
   onChange,
   onRemove,
 }: ReceiptItemEditorProps) {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
       <label className="block space-y-1">
@@ -82,14 +86,40 @@ export function ReceiptItemEditor({
         </p>
       ) : null}
       {onRemove ? (
-        <Button
-          type="button"
-          variant="destructive"
-          className="h-11 w-full"
-          onClick={onRemove}
-        >
-          この商品を削除
-        </Button>
+        confirmingRemove ? (
+          <div className="space-y-2 rounded-md bg-destructive/10 p-2">
+            <p className="text-sm">この商品を削除しますか？</p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="destructive"
+                className="h-8 flex-1 text-sm"
+                onClick={onRemove}
+              >
+                削除する
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 flex-1 text-sm"
+                onClick={() => setConfirmingRemove(false)}
+              >
+                やめる
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-8 px-3 text-xs"
+              onClick={() => setConfirmingRemove(true)}
+            >
+              削除
+            </Button>
+          </div>
+        )
       ) : null}
     </div>
   );
