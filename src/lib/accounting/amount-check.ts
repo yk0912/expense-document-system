@@ -290,7 +290,7 @@ export function taxBreakdownFromItems(
     8: { included: [] as number[], excluded: [] as number[] },
     10: { included: [] as number[], excluded: [] as number[] },
   };
-  let inclusiveTotal = 0;
+  let otherInclusive = 0;
   let complete = items.length > 0;
   let hasAmount = false;
 
@@ -302,11 +302,13 @@ export function taxBreakdownFromItems(
     hasAmount = true;
     const percent = itemTaxPercent(item.taxRate);
     const kind = resolveItemTaxKind(item, defaults);
-    inclusiveTotal += inclusiveFromBase(item.amount, percent ?? 0, kind);
     if (percent === 8 || percent === 10) {
       groups[percent][kind].push(item.amount);
-    } else if (percent !== 0 && percent !== 1) {
-      complete = false;
+    } else {
+      otherInclusive += inclusiveFromBase(item.amount, percent ?? 0, kind);
+      if (percent !== 0 && percent !== 1) {
+        complete = false;
+      }
     }
   }
 
@@ -314,15 +316,17 @@ export function taxBreakdownFromItems(
     const included = groups[rate].included;
     const excluded = groups[rate].excluded;
     if (included.length === 0 && excluded.length === 0) {
-      return { taxable: null, tax: null };
+      return { taxable: null, tax: null, inclusive: 0 };
     }
     const includedSum = included.reduce((sum, amount) => sum + amount, 0);
     const excludedSum = excluded.reduce((sum, amount) => sum + amount, 0);
+    const excludedTax = consumptionTaxFromBase(excludedSum, rate, "excluded");
     return {
       taxable: includedSum + excludedSum,
       tax:
-        consumptionTaxFromBase(includedSum, rate, "included") +
-        consumptionTaxFromBase(excludedSum, rate, "excluded"),
+        consumptionTaxFromBase(includedSum, rate, "included") + excludedTax,
+      // レシートと同じく税率グループで切り捨て。商品ごとに切り捨てて足すと数円ずれる
+      inclusive: includedSum + excludedSum + excludedTax,
     };
   };
 
@@ -334,7 +338,9 @@ export function taxBreakdownFromItems(
     tax10: group10.tax,
     taxable8: group8.taxable,
     taxable10: group10.taxable,
-    inclusiveTotal: hasAmount ? inclusiveTotal : null,
+    inclusiveTotal: hasAmount
+      ? otherInclusive + group8.inclusive + group10.inclusive
+      : null,
     complete,
   };
 }

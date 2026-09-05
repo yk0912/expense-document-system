@@ -248,23 +248,32 @@ export function SystemSettingsScreen() {
         <h2 className="text-sm font-medium">レシート読み取り</h2>
         <label className="block space-y-1">
           <span className="text-xs text-muted-foreground">Geminiモデル</span>
-          <select
-            className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
-            value={geminiSelectValue}
-            disabled={!unlocked}
-            onChange={(event) => {
-              const value = event.target.value;
-              setGeminiModel(value === CUSTOM_GEMINI_MODEL ? "" : value);
-              setSaved(false);
-            }}
+          <div
+            className={
+              unlocked
+                ? undefined
+                : "pointer-events-none cursor-not-allowed opacity-50"
+            }
           >
-            {geminiModels.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-            <option value={CUSTOM_GEMINI_MODEL}>その他（手入力）</option>
-          </select>
+            <select
+              className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base disabled:cursor-not-allowed disabled:bg-input/50"
+              value={geminiSelectValue}
+              disabled={!unlocked}
+              aria-disabled={!unlocked}
+              onChange={(event) => {
+                const value = event.target.value;
+                setGeminiModel(value === CUSTOM_GEMINI_MODEL ? "" : value);
+                setSaved(false);
+              }}
+            >
+              {geminiModels.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+              <option value={CUSTOM_GEMINI_MODEL}>その他（手入力）</option>
+            </select>
+          </div>
         </label>
         {geminiSelectValue === CUSTOM_GEMINI_MODEL ? (
           <label className="block space-y-1">

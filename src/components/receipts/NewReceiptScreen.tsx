@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ProgressBar } from "@/components/receipts/ProgressBar";
 import { ReceiptCapture } from "@/components/receipts/ReceiptCapture";
+import { useReceiptDraft } from "@/components/receipts/ReceiptDraftProvider";
 import { ReceiptPreview } from "@/components/receipts/ReceiptPreview";
 import { ReceiptReviewCard } from "@/components/receipts/ReceiptReviewCard";
 import { FixedErrorBanner } from "@/components/feedback/FixedErrorBanner";
@@ -31,47 +32,29 @@ function canRegister(receipts: ReviewReceipt[]): boolean {
 
 export function NewReceiptScreen() {
   const router = useRouter();
-  const [image, setImage] = useState<CompressedReceiptImage | null>(null);
+  const {
+    image,
+    analysis,
+    results,
+    error,
+    isAnalyzing,
+    isRegistering,
+    progress,
+    setAnalysis,
+    setResults,
+    setError,
+    setIsAnalyzing,
+    setIsRegistering,
+    setProgress,
+    replaceImage,
+    analyzeAbortRef,
+  } = useReceiptDraft();
   const [isCompressing, setIsCompressing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [progress, setProgress] = useState<{ label: string; percent: number } | null>(
-    null,
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
-  const [results, setResults] = useState<RegisterReceiptResult[] | null>(null);
   const [openCameraOnCapture, setOpenCameraOnCapture] = useState(false);
-  const previewUrlRef = useRef<string | null>(null);
-  const analyzeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     void appFetch("/api/receipts/categories").catch(() => undefined);
   }, []);
-
-  useEffect(() => {
-    return () => {
-      analyzeAbortRef.current?.abort();
-      if (previewUrlRef.current) {
-        URL.revokeObjectURL(previewUrlRef.current);
-      }
-    };
-  }, []);
-
-  const replaceImage = (next: CompressedReceiptImage | null) => {
-    analyzeAbortRef.current?.abort();
-    analyzeAbortRef.current = null;
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
-    }
-    if (next) {
-      previewUrlRef.current = next.previewUrl;
-    }
-    setImage(next);
-    setAnalysis(null);
-    setResults(null);
-  };
 
   const analyzeImage = async (target: CompressedReceiptImage) => {
     analyzeAbortRef.current?.abort();

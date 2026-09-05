@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { BottomNav } from "@/components/nav/BottomNav";
 import { DeployedAtLabel } from "@/components/nav/DeployedAtLabel";
+import { ReceiptDraftProvider, useReceiptDraft } from "@/components/receipts/ReceiptDraftProvider";
 import { SettingsProvider } from "@/components/settings/SettingsProvider";
 
 type SessionInfo = { name: string; isAdmin: boolean };
@@ -36,6 +37,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SettingsProvider>
+      <ReceiptDraftProvider>
+        <AppFrame session={session} onLogout={handleLogout}>
+          {children}
+        </AppFrame>
+      </ReceiptDraftProvider>
+    </SettingsProvider>
+  );
+}
+
+function AppFrame({
+  children,
+  session,
+  onLogout,
+}: {
+  children: ReactNode;
+  session: SessionInfo | null;
+  onLogout: () => Promise<void>;
+}) {
+  const { clearDraft } = useReceiptDraft();
+
+  return (
+    <>
       <div className="flex min-h-full flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))]">
         {session ? (
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 text-sm">
@@ -43,7 +66,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="truncate text-muted-foreground">{session.name}</p>
               <DeployedAtLabel className="truncate text-xs text-muted-foreground" />
             </div>
-            <button type="button" className="shrink-0 text-primary" onClick={() => void handleLogout()}>
+            <button
+              type="button"
+              className="shrink-0 text-primary"
+              onClick={() => {
+                clearDraft();
+                void onLogout();
+              }}
+            >
               ログアウト
             </button>
           </div>
@@ -51,6 +81,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </div>
       <BottomNav />
-    </SettingsProvider>
+    </>
   );
 }

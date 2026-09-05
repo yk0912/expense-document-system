@@ -357,7 +357,7 @@ export function ReceiptReviewCard({
           <div>
             <p className="font-medium">金額の照合</p>
             <p className="text-xs text-muted-foreground">
-              内税の税込再計は対象額そのものです。外税だけ対象額に消費税を足します。印字の税額から判定できる場合は自動で合わせます
+              内税の税込再計は対象額そのものです。外税は対象額に、税率ごとの消費税（切り捨て）を足します
             </p>
           </div>
           {showItemCalc ? (
