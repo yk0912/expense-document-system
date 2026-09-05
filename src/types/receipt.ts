@@ -64,6 +64,8 @@ export type ReviewReceipt = {
   itemInclusiveTotal: number | null;
   taxKind8: TaxKind | null;
   taxKind10: TaxKind | null;
+  taxKind8Locked?: boolean;
+  taxKind10Locked?: boolean;
   priceBasis: PriceBasis;
   vendorKind: VendorKind;
   entryMode: EntryMode;

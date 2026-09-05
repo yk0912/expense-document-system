@@ -68,6 +68,85 @@ export function resolveItemTaxKind(
   return "excluded";
 }
 
+export function inferTaxKind(
+  taxable: number | null,
+  printedTax: number | null,
+  ratePercent: number,
+): TaxKind | null {
+  if (taxable === null || printedTax === null || taxable <= 0) {
+    return null;
+  }
+  const included = floorIncludedTax(taxable, ratePercent);
+  const excluded = floorConsumptionTax(taxable, ratePercent);
+  if (included === printedTax && excluded !== printedTax) {
+    return "included";
+  }
+  if (excluded === printedTax && included !== printedTax) {
+    return "excluded";
+  }
+  return null;
+}
+
+export function printedInclusiveFromGroups(input: {
+  subtotal: number | null;
+  taxable8: number | null;
+  taxable10: number | null;
+  tax8: number | null;
+  tax10: number | null;
+  taxKind8: TaxKind | null;
+  taxKind10: TaxKind | null;
+}): number | null {
+  const hasTaxable = input.taxable8 !== null || input.taxable10 !== null;
+  if (hasTaxable) {
+    let sum = 0;
+    let used = false;
+    if (input.taxable8 !== null || input.tax8 !== null) {
+      if (input.taxKind8 === "included") {
+        if (input.taxable8 !== null) {
+          sum += input.taxable8;
+          used = true;
+        }
+      } else {
+        if (input.taxable8 !== null) {
+          sum += input.taxable8;
+          used = true;
+        }
+        if (input.tax8 !== null) {
+          sum += input.tax8;
+          used = true;
+        }
+      }
+    }
+    if (input.taxable10 !== null || input.tax10 !== null) {
+      if (input.taxKind10 === "included") {
+        if (input.taxable10 !== null) {
+          sum += input.taxable10;
+          used = true;
+        }
+      } else {
+        if (input.taxable10 !== null) {
+          sum += input.taxable10;
+          used = true;
+        }
+        if (input.tax10 !== null) {
+          sum += input.tax10;
+          used = true;
+        }
+      }
+    }
+    return used ? sum : null;
+  }
+
+  if (input.subtotal === null) {
+    return null;
+  }
+  return (
+    input.subtotal +
+    (input.taxKind8 === "included" ? 0 : (input.tax8 ?? 0)) +
+    (input.taxKind10 === "included" ? 0 : (input.tax10 ?? 0))
+  );
+}
+
 export function explainedByConsumptionTax(
   receiptTotal: number,
   lineTotal: number,
@@ -96,8 +175,7 @@ export function explainedByItemTaxRates(
   const inclusive = items.reduce((sum, item) => {
     const amount = item.amount ?? 0;
     const percent = itemTaxPercent(item.taxRate) ?? 0;
-    const kind = resolveItemTaxKind(item);
-    return sum + inclusiveFromBase(amount, percent, kind);
+    return sum + inclusiveFromBase(amount, percent, "excluded");
   }, 0);
 
   return inclusive === receiptTotal;

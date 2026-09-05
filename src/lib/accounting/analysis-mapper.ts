@@ -1,8 +1,10 @@
 import {
   explainedByConsumptionTax,
   explainedByItemTaxRates,
+  inferTaxKind,
   looksLikeConsumptionTaxGap,
   defaultTaxRateForCategory,
+  itemTaxPercent,
   normalizeItemTaxRate,
   sumAmounts,
   taxBreakdownFromItems,
@@ -142,6 +144,67 @@ function printedTotal(receipt: ReviewReceipt): number | null {
   return receipt.extractedTotalAmount ?? receipt.totalAmount;
 }
 
+function sumRateAmounts(
+  items: ReviewReceipt["items"],
+  rate: 8 | 10,
+): number | null {
+  const amounts = items
+    .filter((item) => itemTaxPercent(item.taxRate) === rate)
+    .map((item) => item.amount);
+  if (amounts.length === 0) {
+    return null;
+  }
+  return sumAmounts(amounts);
+}
+
+function resolveReceiptTaxKinds(receipt: ReviewReceipt): {
+  taxKind8: TaxKind | null;
+  taxKind10: TaxKind | null;
+  inferred8: boolean;
+  inferred10: boolean;
+} {
+  const items =
+    receipt.entryMode === "line_items" ? receipt.items : receipt.extractedItems;
+  const inferred8 =
+    inferTaxKind(receipt.extractedTaxableAmount8, receipt.extractedTaxAmount8, 8) ??
+    inferTaxKind(sumRateAmounts(items, 8), receipt.extractedTaxAmount8, 8);
+  const inferred10 =
+    inferTaxKind(
+      receipt.extractedTaxableAmount10,
+      receipt.extractedTaxAmount10,
+      10,
+    ) ?? inferTaxKind(sumRateAmounts(items, 10), receipt.extractedTaxAmount10, 10);
+  return {
+    taxKind8: receipt.taxKind8Locked
+      ? receipt.taxKind8
+      : inferred8 ?? receipt.taxKind8,
+    taxKind10: receipt.taxKind10Locked
+      ? receipt.taxKind10
+      : inferred10 ?? receipt.taxKind10,
+    inferred8: !receipt.taxKind8Locked && inferred8 !== null,
+    inferred10: !receipt.taxKind10Locked && inferred10 !== null,
+  };
+}
+
+function applyTaxKindsToItems(
+  items: ReviewReceipt["items"],
+  taxKind8: TaxKind | null,
+  taxKind10: TaxKind | null,
+  force8 = false,
+  force10 = false,
+): ReviewReceipt["items"] {
+  return items.map((item) => {
+    const percent = itemTaxPercent(item.taxRate);
+    if (percent === 8 && taxKind8 && (force8 || item.taxKind == null)) {
+      return { ...item, taxKind: taxKind8 };
+    }
+    if (percent === 10 && taxKind10 && (force10 || item.taxKind == null)) {
+      return { ...item, taxKind: taxKind10 };
+    }
+    return item;
+  });
+}
+
 export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
   const printed = {
     subtotalAmount: receipt.extractedSubtotalAmount,
@@ -151,9 +214,24 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     taxableAmount10: receipt.extractedTaxableAmount10,
     totalAmount: printedTotal(receipt),
   };
+  const { taxKind8, taxKind10, inferred8, inferred10 } = resolveReceiptTaxKinds(receipt);
+  const items = applyTaxKindsToItems(
+    receipt.items,
+    taxKind8,
+    taxKind10,
+    inferred8,
+    inferred10,
+  );
+  const extractedItems = applyTaxKindsToItems(
+    receipt.extractedItems,
+    taxKind8,
+    taxKind10,
+    inferred8,
+    inferred10,
+  );
   const fromItems = taxBreakdownFromItems(
-    receipt.entryMode === "line_items" ? receipt.items : receipt.extractedItems,
-    { taxKind8: receipt.taxKind8, taxKind10: receipt.taxKind10 },
+    receipt.entryMode === "line_items" ? items : extractedItems,
+    { taxKind8, taxKind10 },
   );
   const warnings = receipt.warnings.filter((warning) => !isGeneratedWarning(warning));
 
@@ -165,6 +243,10 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     return {
       ...receipt,
       ...printed,
+      items,
+      extractedItems,
+      taxKind8,
+      taxKind10,
       totalAmount: amount,
       lineTotal: amount,
       itemTaxAmount8: fromItems.tax8,
@@ -211,6 +293,10 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
   return {
     ...receipt,
     ...printed,
+    items,
+    extractedItems,
+    taxKind8,
+    taxKind10,
     priceBasis,
     lineTotal,
     itemTaxAmount8: fromItems.tax8,

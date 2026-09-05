@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import {
   applyEntryMode,
   createEmptyReviewItem,
@@ -22,7 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { itemTaxPercent } from "@/lib/accounting/amount-check";
+import { itemTaxPercent, printedInclusiveFromGroups } from "@/lib/accounting/amount-check";
 import {
   PRICE_BASES,
   STORES,
@@ -47,13 +49,6 @@ function parseYenInput(raw: string): number | null {
     return null;
   }
   return Number(digits);
-}
-
-function addAmounts(...values: Array<number | null>): number | null {
-  if (values.every((value) => value === null)) {
-    return null;
-  }
-  return values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 }
 
 function CompactYenInput({
@@ -106,6 +101,21 @@ export function ReceiptReviewCard({
     onChange(summarizeReceipt({ ...receipt, ...patch }));
   };
 
+  useEffect(() => {
+    const next = summarizeReceipt(receipt);
+    if (
+      next.taxKind8 !== receipt.taxKind8 ||
+      next.taxKind10 !== receipt.taxKind10 ||
+      next.itemInclusiveTotal !== receipt.itemInclusiveTotal ||
+      next.itemTaxAmount8 !== receipt.itemTaxAmount8 ||
+      next.itemTaxAmount10 !== receipt.itemTaxAmount10
+    ) {
+      onChange(next);
+    }
+    // 既存の読み取り結果を、印字額からの内税/外税推論で一度だけ補正する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipt.clientId]);
+
   const updateItems = (
     items: ReviewReceipt["items"],
     recalculateTotal = false,
@@ -113,21 +123,23 @@ export function ReceiptReviewCard({
     onChange(replaceReceiptItems(receipt, items, { recalculateTotal }));
   };
 
-  const printedTaxSum =
-    receipt.extractedSubtotalAmount === null ||
-    (receipt.extractedTaxAmount8 === null && receipt.extractedTaxAmount10 === null)
-      ? null
-      : addAmounts(
-          receipt.extractedSubtotalAmount,
-          receipt.extractedTaxAmount8,
-          receipt.extractedTaxAmount10,
-        );
+  const printedTaxSum = printedInclusiveFromGroups({
+    subtotal: receipt.extractedSubtotalAmount,
+    taxable8: receipt.extractedTaxableAmount8,
+    taxable10: receipt.extractedTaxableAmount10,
+    tax8: receipt.extractedTaxAmount8,
+    tax10: receipt.extractedTaxAmount10,
+    taxKind8: receipt.taxKind8,
+    taxKind10: receipt.taxKind10,
+  });
   const itemInclusive = receipt.itemInclusiveTotal;
   const showItemCalc = receipt.entryMode === "line_items";
 
   const setRateTaxKind = (rate: 8 | 10, taxKind: TaxKind | null) => {
     const patch =
-      rate === 8 ? { taxKind8: taxKind } : { taxKind10: taxKind };
+      rate === 8
+        ? { taxKind8: taxKind, taxKind8Locked: taxKind !== null }
+        : { taxKind10: taxKind, taxKind10Locked: taxKind !== null };
     onChange(
       summarizeReceipt({
         ...receipt,
@@ -345,7 +357,7 @@ export function ReceiptReviewCard({
           <div>
             <p className="font-medium">金額の照合</p>
             <p className="text-xs text-muted-foreground">
-              レシートに「内10%」とあれば内税、「外10%」とあれば外税です。読み取りが違う場合は修正してください
+              内税の税込再計は対象額そのものです。外税だけ対象額に消費税を足します。印字の税額から判定できる場合は自動で合わせます
             </p>
           </div>
           {showItemCalc ? (
@@ -518,7 +530,7 @@ export function ReceiptReviewCard({
                   ) : null}
                 </tr>
                 <tr className="border-b border-border/70">
-                  <td className="py-1.5 pr-2">小計＋消費税</td>
+                  <td className="py-1.5 pr-2">税込再計</td>
                   <td className="py-1.5 pr-2 tabular-nums">{yen(printedTaxSum)}</td>
                   {showItemCalc ? (
                     <td className="py-1.5 pr-2 tabular-nums">{yen(itemInclusive)}</td>
