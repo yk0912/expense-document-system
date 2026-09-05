@@ -23,6 +23,7 @@ import type {
   EntryMode,
   ReviewItem,
   ReviewReceipt,
+  TaxKind,
 } from "@/types/receipt";
 
 function createId(prefix: string, index: number): string {
@@ -36,6 +37,7 @@ function toReviewItem(
     unitPrice?: number | null;
     amount: number | null;
     taxRate?: number | null;
+    taxKind?: TaxKind | null;
     itemType?: ReviewItem["itemType"];
     suggestedCategory?: string | null;
     category?: string | null;
@@ -46,6 +48,8 @@ function toReviewItem(
   categoryNames: Set<string>,
   masterEmpty: boolean,
   categories: CategoryMasterItem[],
+  taxKind8: TaxKind | null,
+  taxKind10: TaxKind | null,
 ): ReviewItem {
   const suggested = item.suggestedCategory ?? item.category ?? null;
   const resolved = suggested
@@ -65,6 +69,14 @@ function toReviewItem(
     unitPrice: item.unitPrice ?? null,
     amount: item.amount,
     taxRate,
+    taxKind:
+      item.taxKind === "included" || item.taxKind === "excluded"
+        ? item.taxKind
+        : taxRate === 8
+          ? taxKind8
+          : taxRate === 10
+            ? taxKind10
+            : null,
     itemType: item.itemType ?? "item",
     category,
     categoryConfidence: item.categoryConfidence ?? null,
@@ -84,6 +96,7 @@ export function createEmptyReviewItem(): ReviewItem {
     unitPrice: null,
     amount: null,
     taxRate: 0,
+    taxKind: null,
     itemType: "item",
     category: null,
     categoryConfidence: null,
@@ -107,6 +120,7 @@ function createLumpItem(
     unitPrice: amount,
     amount,
     taxRate: null,
+    taxKind: "included",
     itemType: "item",
     category,
     categoryConfidence: category ? 0.8 : null,
@@ -139,6 +153,7 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
   };
   const fromItems = taxBreakdownFromItems(
     receipt.entryMode === "line_items" ? receipt.items : receipt.extractedItems,
+    { taxKind8: receipt.taxKind8, taxKind10: receipt.taxKind10 },
   );
   const warnings = receipt.warnings.filter((warning) => !isGeneratedWarning(warning));
 
@@ -156,6 +171,7 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
       itemTaxAmount10: fromItems.tax10,
       itemTaxableAmount8: fromItems.taxable8,
       itemTaxableAmount10: fromItems.taxable10,
+      itemInclusiveTotal: fromItems.inclusiveTotal,
       totalDifference: 0,
       warnings,
       taxReconciledRate: null,
@@ -201,6 +217,7 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     itemTaxAmount10: fromItems.tax10,
     itemTaxableAmount8: fromItems.taxable8,
     itemTaxableAmount10: fromItems.taxable10,
+    itemInclusiveTotal: fromItems.inclusiveTotal,
     totalDifference,
     warnings,
     taxReconciledRate: taxRate,
@@ -275,7 +292,15 @@ export function toAnalyzeResponse(
 
   const receipts: ReviewReceipt[] = analysis.receipts.map((receipt, receiptIndex) => {
     const extractedItems = receipt.items.map((item, itemIndex) =>
-      toReviewItem(item, itemIndex, categoryNames, masterEmpty, categories),
+      toReviewItem(
+        item,
+        itemIndex,
+        categoryNames,
+        masterEmpty,
+        categories,
+        receipt.taxKind8 ?? null,
+        receipt.taxKind10 ?? null,
+      ),
     );
     const vendorKind = resolveVendorKind(
       receipt.storeName,
@@ -316,6 +341,9 @@ export function toAnalyzeResponse(
       itemTaxableAmount10: null,
       itemTaxAmount8: null,
       itemTaxAmount10: null,
+      itemInclusiveTotal: null,
+      taxKind8: receipt.taxKind8 ?? null,
+      taxKind10: receipt.taxKind10 ?? null,
       priceBasis: receipt.priceBasis,
       vendorKind,
       entryMode,

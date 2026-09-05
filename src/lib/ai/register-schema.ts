@@ -6,6 +6,7 @@ export const registerItemSchema = z.object({
   name: z.string().trim().min(1),
   amount: z.number(),
   taxRate: z.number().nullable().optional(),
+  taxKind: z.enum(["included", "excluded"]).nullable().optional(),
   category: z.string().trim().min(1),
 });
 

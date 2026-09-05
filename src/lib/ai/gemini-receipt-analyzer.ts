@@ -37,14 +37,14 @@ function buildPrompt(categories: CategoryMasterItem[]): string {
 取引日
 小計（税抜）
 消費税8%対象合計
-消費税8%
+消費税8%（内税か外税か）
 消費税10%対象合計
-消費税10%
+消費税10%（内税か外税か）
 支払合計（税込）
 商品明細
 数量
 単価
-金額（税抜）
+金額
 税込・税抜表記
 を取得してください。
 
@@ -54,8 +54,11 @@ function buildPrompt(categories: CategoryMasterItem[]): string {
 subtotalAmount にはレシートに印字された小計（税抜）だけを入れてください。商品を足して作らないでください。小計が無い場合はnullです。
 taxAmount8 / taxAmount10 にはレシートに印字された消費税額だけを入れてください。商品から計算しないでください。その税率の記載が無い場合はnullです。
 taxableAmount8 / taxableAmount10 には印字された「8%対象合計」「10%対象合計」だけを入れてください。記載が無い場合はnullです。商品を足して作らないでください。
+taxKind8 / taxKind10 は印字だけで判定してください。「内10%」「内8%」「内税」とある税率は included、「外10%」「外8%」「外税」とある税率は excluded です。記載が無く判定できない場合はnullです。推測しないでください。
 totalAmount には印字された支払合計（税込）だけを入れてください。小計や税額を足して作らないでください。
-商品明細の amount と unitPrice は税抜です。item.taxRate は 0 / 1 / 8 / 10 のいずれかにしてください。食材・食品は8、備品は10、分からない場合は0です。
+商品明細の amount と unitPrice はレシートに印字された金額のままです。内税なら税込、外税なら税抜です。自分で税を足したり引いたりしないでください。
+item.taxRate は 0 / 1 / 8 / 10 のいずれかにしてください。食材・食品は8、備品は10、分からない場合は0です。
+item.taxKind は商品行に内税・外税の記載があるときだけ入れてください。無い場合はnullです。
 値引・クーポン・ポイント利用は itemType を discount / coupon / point にして、できる限り明細として返してください。
 transactionDate は YYYY-MM-DD 形式にしてください。読めない場合はnullです。
 boundingBox は [ymin, xmin, ymax, xmax] を 0〜1000 の正規化整数で返してください。不明ならnullです。

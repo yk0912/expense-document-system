@@ -22,7 +22,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PRICE_BASES, STORES, type CategoryMasterItem, type ReviewReceipt } from "@/types/receipt";
+import { itemTaxPercent } from "@/lib/accounting/amount-check";
+import {
+  PRICE_BASES,
+  STORES,
+  type CategoryMasterItem,
+  type ReviewReceipt,
+  type TaxKind,
+} from "@/types/receipt";
 
 const PRICE_LABELS: Record<(typeof PRICE_BASES)[number], string> = {
   tax_included: "税込",
@@ -115,15 +122,22 @@ export function ReceiptReviewCard({
           receipt.extractedTaxAmount8,
           receipt.extractedTaxAmount10,
         );
-  const itemInclusive =
-    receipt.lineTotal === null
-      ? null
-      : addAmounts(
-          receipt.lineTotal,
-          receipt.itemTaxAmount8,
-          receipt.itemTaxAmount10,
-        );
+  const itemInclusive = receipt.itemInclusiveTotal;
   const showItemCalc = receipt.entryMode === "line_items";
+
+  const setRateTaxKind = (rate: 8 | 10, taxKind: TaxKind | null) => {
+    const patch =
+      rate === 8 ? { taxKind8: taxKind } : { taxKind10: taxKind };
+    onChange(
+      summarizeReceipt({
+        ...receipt,
+        ...patch,
+        items: receipt.items.map((item) =>
+          itemTaxPercent(item.taxRate) === rate ? { ...item, taxKind } : item,
+        ),
+      }),
+    );
+  };
 
   return (
     <Card className="gap-0 overflow-hidden border-[3px] border-primary py-0 ring-0">
@@ -255,6 +269,8 @@ export function ReceiptReviewCard({
                 categories={categories}
                 lumpSum
                 namePlaceholder={defaultLumpItemName(receipt.vendorKind)}
+                defaultTaxKind8={receipt.taxKind8}
+                defaultTaxKind10={receipt.taxKind10}
                 onChange={(nextItem) => update({ items: [nextItem] })}
               />
             ) : null}
@@ -292,6 +308,8 @@ export function ReceiptReviewCard({
                 key={item.clientId}
                 item={item}
                 categories={categories}
+                defaultTaxKind8={receipt.taxKind8}
+                defaultTaxKind10={receipt.taxKind10}
                 onChange={(nextItem) =>
                   updateItems(
                     receipt.items.map((current) =>
@@ -327,9 +345,47 @@ export function ReceiptReviewCard({
           <div>
             <p className="font-medium">金額の照合</p>
             <p className="text-xs text-muted-foreground">
-              レシート列は読み取りが違う場合に修正できます
+              レシートに「内10%」とあれば内税、「外10%」とあれば外税です。読み取りが違う場合は修正してください
             </p>
           </div>
+          {showItemCalc ? (
+            <div className="grid grid-cols-2 gap-2">
+              <label className="space-y-1">
+                <span className="text-xs text-muted-foreground">8% 内税 / 外税</span>
+                <select
+                  className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+                  value={receipt.taxKind8 ?? ""}
+                  onChange={(event) =>
+                    setRateTaxKind(
+                      8,
+                      (event.target.value || null) as TaxKind | null,
+                    )
+                  }
+                >
+                  <option value="">未設定</option>
+                  <option value="included">内税</option>
+                  <option value="excluded">外税</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-muted-foreground">10% 内税 / 外税</span>
+                <select
+                  className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+                  value={receipt.taxKind10 ?? ""}
+                  onChange={(event) =>
+                    setRateTaxKind(
+                      10,
+                      (event.target.value || null) as TaxKind | null,
+                    )
+                  }
+                >
+                  <option value="">未設定</option>
+                  <option value="included">内税</option>
+                  <option value="excluded">外税</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[22rem] border-collapse text-sm">
               <thead>

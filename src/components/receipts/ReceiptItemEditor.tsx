@@ -10,6 +10,7 @@ import {
   type CategoryMasterItem,
   type ItemTaxRate,
   type ReviewItem,
+  type TaxKind,
 } from "@/types/receipt";
 
 type ReceiptItemEditorProps = {
@@ -17,6 +18,8 @@ type ReceiptItemEditorProps = {
   categories: CategoryMasterItem[];
   lumpSum?: boolean;
   namePlaceholder?: string;
+  defaultTaxKind8?: TaxKind | null;
+  defaultTaxKind10?: TaxKind | null;
   onChange: (next: ReviewItem) => void;
   onRemove?: () => void;
 };
@@ -26,6 +29,8 @@ export function ReceiptItemEditor({
   categories,
   lumpSum = false,
   namePlaceholder,
+  defaultTaxKind8 = null,
+  defaultTaxKind10 = null,
   onChange,
   onRemove,
 }: ReceiptItemEditorProps) {
@@ -49,7 +54,7 @@ export function ReceiptItemEditor({
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1">
           <span className="text-xs text-muted-foreground">
-            {lumpSum ? "金額（円）" : "金額（税抜・円）"}
+            {lumpSum ? "金額（円）" : "金額（円）"}
           </span>
           <Input
             inputMode="numeric"
@@ -71,10 +76,17 @@ export function ReceiptItemEditor({
             value={item.category ?? ""}
             onChange={(event) => {
               const category = event.target.value || null;
+              const taxRate = defaultTaxRateForCategory(category, categories);
               onChange({
                 ...item,
                 category,
-                taxRate: defaultTaxRateForCategory(category, categories),
+                taxRate,
+                taxKind:
+                  taxRate === 8
+                    ? (item.taxKind ?? defaultTaxKind8)
+                    : taxRate === 10
+                      ? (item.taxKind ?? defaultTaxKind10)
+                      : item.taxKind,
                 requiresReview: event.target.value === "",
               });
             }}
@@ -89,25 +101,52 @@ export function ReceiptItemEditor({
         </label>
       </div>
       {lumpSum ? null : (
-        <label className="block space-y-1">
-          <span className="text-xs text-muted-foreground">消費税</span>
-          <select
-            className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
-            value={item.taxRate ?? 0}
-            onChange={(event) =>
-              onChange({
-                ...item,
-                taxRate: Number(event.target.value) as ItemTaxRate,
-              })
-            }
-          >
-            {ITEM_TAX_RATES.map((rate) => (
-              <option key={rate} value={rate}>
-                {rate}%
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">消費税率</span>
+            <select
+              className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+              value={item.taxRate ?? 0}
+              onChange={(event) => {
+                const taxRate = Number(event.target.value) as ItemTaxRate;
+                const taxKind =
+                  taxRate === 8
+                    ? (item.taxKind ?? defaultTaxKind8)
+                    : taxRate === 10
+                      ? (item.taxKind ?? defaultTaxKind10)
+                      : item.taxKind;
+                onChange({
+                  ...item,
+                  taxRate,
+                  taxKind,
+                });
+              }}
+            >
+              {ITEM_TAX_RATES.map((rate) => (
+                <option key={rate} value={rate}>
+                  {rate}%
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">内税 / 外税</span>
+            <select
+              className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+              value={item.taxKind ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...item,
+                  taxKind: (event.target.value || null) as TaxKind | null,
+                })
+              }
+            >
+              <option value="">未設定</option>
+              <option value="included">内税</option>
+              <option value="excluded">外税</option>
+            </select>
+          </label>
+        </div>
       )}
       {item.requiresReview || !item.category ? (
         <p className="text-sm text-destructive">

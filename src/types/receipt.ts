@@ -13,6 +13,9 @@ export type EntryMode = (typeof ENTRY_MODES)[number];
 export const ITEM_TAX_RATES = [0, 1, 8, 10] as const;
 export type ItemTaxRate = (typeof ITEM_TAX_RATES)[number];
 
+export const TAX_KINDS = ["included", "excluded"] as const;
+export type TaxKind = (typeof TAX_KINDS)[number];
+
 export type CategoryMasterItem = {
   name: string;
   examples: string | null;
@@ -27,6 +30,7 @@ export type ReviewItem = {
   unitPrice: number | null;
   amount: number | null;
   taxRate: number | null;
+  taxKind: TaxKind | null;
   itemType: "item" | "discount" | "coupon" | "point";
   category: string | null;
   categoryConfidence: number | null;
@@ -57,6 +61,9 @@ export type ReviewReceipt = {
   itemTaxableAmount10: number | null;
   itemTaxAmount8: number | null;
   itemTaxAmount10: number | null;
+  itemInclusiveTotal: number | null;
+  taxKind8: TaxKind | null;
+  taxKind10: TaxKind | null;
   priceBasis: PriceBasis;
   vendorKind: VendorKind;
   entryMode: EntryMode;

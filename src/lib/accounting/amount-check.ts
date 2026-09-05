@@ -1,4 +1,4 @@
-import type { CategoryMasterItem, ItemTaxRate } from "@/types/receipt";
+import type { CategoryMasterItem, ItemTaxRate, TaxKind } from "@/types/receipt";
 
 export function sumAmounts(amounts: Array<number | null>): number | null {
   if (amounts.some((amount) => amount === null)) {
@@ -16,8 +16,56 @@ export function floorConsumptionTax(exclusive: number, ratePercent: number): num
   return Math.floor(exclusive * (ratePercent / 100));
 }
 
+export function floorIncludedTax(inclusive: number, ratePercent: number): number {
+  if (ratePercent <= 0) {
+    return 0;
+  }
+  return Math.floor((inclusive * ratePercent) / (100 + ratePercent));
+}
+
+export function consumptionTaxFromBase(
+  base: number,
+  ratePercent: number,
+  kind: TaxKind,
+): number {
+  if (ratePercent <= 0) {
+    return 0;
+  }
+  return kind === "included"
+    ? floorIncludedTax(base, ratePercent)
+    : floorConsumptionTax(base, ratePercent);
+}
+
+export function inclusiveFromBase(
+  base: number,
+  ratePercent: number,
+  kind: TaxKind,
+): number {
+  if (kind === "included") {
+    return base;
+  }
+  return base + floorConsumptionTax(base, ratePercent);
+}
+
 export function floorInclusiveAmount(exclusive: number, ratePercent: number): number {
   return exclusive + floorConsumptionTax(exclusive, ratePercent);
+}
+
+export function resolveItemTaxKind(
+  item: { taxRate: number | null; taxKind?: TaxKind | null },
+  defaults: { taxKind8?: TaxKind | null; taxKind10?: TaxKind | null } = {},
+): TaxKind {
+  if (item.taxKind === "included" || item.taxKind === "excluded") {
+    return item.taxKind;
+  }
+  const percent = itemTaxPercent(item.taxRate);
+  if (percent === 8 && defaults.taxKind8) {
+    return defaults.taxKind8;
+  }
+  if (percent === 10 && defaults.taxKind10) {
+    return defaults.taxKind10;
+  }
+  return "excluded";
 }
 
 export function explainedByConsumptionTax(
@@ -48,7 +96,8 @@ export function explainedByItemTaxRates(
   const inclusive = items.reduce((sum, item) => {
     const amount = item.amount ?? 0;
     const percent = itemTaxPercent(item.taxRate) ?? 0;
-    return sum + floorInclusiveAmount(amount, percent);
+    const kind = resolveItemTaxKind(item);
+    return sum + inclusiveFromBase(amount, percent, kind);
   }, 0);
 
   return inclusive === receiptTotal;
@@ -145,41 +194,69 @@ export function itemTaxPercent(taxRate: number | null): ItemTaxRate | null {
 }
 
 export function taxBreakdownFromItems(
-  items: Array<{ amount: number | null; taxRate: number | null }>,
+  items: Array<{
+    amount: number | null;
+    taxRate: number | null;
+    taxKind?: TaxKind | null;
+  }>,
+  defaults: { taxKind8?: TaxKind | null; taxKind10?: TaxKind | null } = {},
 ): {
   tax8: number | null;
   tax10: number | null;
   taxable8: number | null;
   taxable10: number | null;
+  inclusiveTotal: number | null;
   complete: boolean;
 } {
-  const amounts8: number[] = [];
-  const amounts10: number[] = [];
+  const groups = {
+    8: { included: [] as number[], excluded: [] as number[] },
+    10: { included: [] as number[], excluded: [] as number[] },
+  };
+  let inclusiveTotal = 0;
   let complete = items.length > 0;
+  let hasAmount = false;
 
   for (const item of items) {
     if (item.amount === null) {
       complete = false;
       continue;
     }
+    hasAmount = true;
     const percent = itemTaxPercent(item.taxRate);
-    if (percent === 8) {
-      amounts8.push(item.amount);
-    } else if (percent === 10) {
-      amounts10.push(item.amount);
+    const kind = resolveItemTaxKind(item, defaults);
+    inclusiveTotal += inclusiveFromBase(item.amount, percent ?? 0, kind);
+    if (percent === 8 || percent === 10) {
+      groups[percent][kind].push(item.amount);
     } else if (percent !== 0 && percent !== 1) {
       complete = false;
     }
   }
 
-  const taxable8 = amounts8.length > 0 ? amounts8.reduce((sum, amount) => sum + amount, 0) : null;
-  const taxable10 = amounts10.length > 0 ? amounts10.reduce((sum, amount) => sum + amount, 0) : null;
+  const taxForRate = (rate: 8 | 10) => {
+    const included = groups[rate].included;
+    const excluded = groups[rate].excluded;
+    if (included.length === 0 && excluded.length === 0) {
+      return { taxable: null, tax: null };
+    }
+    const includedSum = included.reduce((sum, amount) => sum + amount, 0);
+    const excludedSum = excluded.reduce((sum, amount) => sum + amount, 0);
+    return {
+      taxable: includedSum + excludedSum,
+      tax:
+        consumptionTaxFromBase(includedSum, rate, "included") +
+        consumptionTaxFromBase(excludedSum, rate, "excluded"),
+    };
+  };
+
+  const group8 = taxForRate(8);
+  const group10 = taxForRate(10);
 
   return {
-    tax8: taxable8 === null ? null : floorConsumptionTax(taxable8, 8),
-    tax10: taxable10 === null ? null : floorConsumptionTax(taxable10, 10),
-    taxable8,
-    taxable10,
+    tax8: group8.tax,
+    tax10: group10.tax,
+    taxable8: group8.taxable,
+    taxable10: group10.taxable,
+    inclusiveTotal: hasAmount ? inclusiveTotal : null,
     complete,
   };
 }

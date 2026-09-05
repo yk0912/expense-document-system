@@ -195,6 +195,7 @@ export function NewReceiptScreen() {
               name: item.name,
               amount: item.amount,
               taxRate: item.taxRate,
+              taxKind: item.taxKind,
               category: item.category,
             })),
           })),

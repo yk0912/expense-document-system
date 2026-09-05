@@ -1,4 +1,9 @@
-import { floorInclusiveAmount, itemTaxPercent } from "@/lib/accounting/amount-check";
+import {
+  inclusiveFromBase,
+  itemTaxPercent,
+  resolveItemTaxKind,
+} from "@/lib/accounting/amount-check";
+import type { TaxKind } from "@/types/receipt";
 
 export function sumAmountsByCategory(
   items: Array<{ category: string | null; amount: number | null }>,
@@ -18,13 +23,15 @@ export function sumAmountsByCategory(
 export function sheetInclusiveAmount(
   amount: number,
   taxRate: number | null,
+  taxKind: TaxKind | null,
   priceBasis: "tax_included" | "tax_excluded",
 ): number {
   if (priceBasis === "tax_included") {
     return amount;
   }
   const percent = itemTaxPercent(taxRate) ?? 0;
-  return floorInclusiveAmount(amount, percent);
+  const kind = resolveItemTaxKind({ taxRate, taxKind });
+  return inclusiveFromBase(amount, percent, kind);
 }
 
 export function sumSheetCategoryAmounts(
@@ -32,6 +39,7 @@ export function sumSheetCategoryAmounts(
     category: string | null;
     amount: number | null;
     taxRate?: number | null;
+    taxKind?: TaxKind | null;
   }>,
   priceBasis: "tax_included" | "tax_excluded",
 ): { amounts: Map<string, number>; taxIncluded: boolean } {
@@ -44,6 +52,7 @@ export function sumSheetCategoryAmounts(
     const value = sheetInclusiveAmount(
       item.amount,
       item.taxRate ?? null,
+      item.taxKind ?? null,
       priceBasis,
     );
     totals.set(item.category, (totals.get(item.category) ?? 0) + value);
