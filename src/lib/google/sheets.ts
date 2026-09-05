@@ -56,6 +56,20 @@ function quotedSheet(name: string): string {
   return `'${name.replaceAll("'", "''")}'`;
 }
 
+/** I列〜AW列。合計列は数式用なので金額は書かない */
+const FIRST_AMOUNT_COLUMN = 8;
+const LAST_AMOUNT_COLUMN = 48;
+
+function isWritableAmountColumn(
+  columnIndex: number,
+  totalColumn: number | null,
+): boolean {
+  if (totalColumn !== null && columnIndex === totalColumn) {
+    return false;
+  }
+  return columnIndex >= FIRST_AMOUNT_COLUMN && columnIndex <= LAST_AMOUNT_COLUMN;
+}
+
 type SheetRef = {
   title: string;
   sheetId: number;
@@ -395,7 +409,7 @@ function buildRowUpdates(
 
   for (const [name, amount] of receipt.categoryAmounts) {
     const column = columns.categories.get(name);
-    if (column === undefined || column === columns.total) {
+    if (column === undefined || !isWritableAmountColumn(column, columns.total)) {
       continue;
     }
     data.push({

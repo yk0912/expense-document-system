@@ -1,3 +1,4 @@
+import { DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini-models";
 import { DEFAULT_USERS_SHEET_NAME } from "@/lib/auth/constants";
 
 export const ISSUE_SHEET_NAME = "登録不良";
@@ -13,6 +14,7 @@ export type AppSettings = {
   issueSheetName: string;
   usersSpreadsheetId: string;
   usersSheetName: string;
+  geminiModel: string;
 };
 
 export const EMPTY_SETTINGS: AppSettings = {
@@ -24,4 +26,5 @@ export const EMPTY_SETTINGS: AppSettings = {
   issueSheetName: ISSUE_SHEET_NAME,
   usersSpreadsheetId: "",
   usersSheetName: DEFAULT_USERS_SHEET_NAME,
+  geminiModel: DEFAULT_GEMINI_MODEL,
 };

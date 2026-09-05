@@ -5,6 +5,7 @@ import { STORES } from "@/types/receipt";
 export const registerItemSchema = z.object({
   name: z.string().trim().min(1),
   amount: z.number(),
+  taxRate: z.number().nullable().optional(),
   category: z.string().trim().min(1),
 });
 
@@ -15,6 +16,7 @@ export const registerReceiptSchema = z.object({
   vendorName: z.string().trim().min(1),
   vendorKind: z.enum(["dining", "retail", "unknown"]).optional(),
   totalAmount: z.number().nullable(),
+  extractedTotalAmount: z.number().nullable().optional(),
   lineTotal: z.number().nullable().optional(),
   priceBasis: z.enum(["tax_included", "tax_excluded"]),
   items: z.array(registerItemSchema).min(1),

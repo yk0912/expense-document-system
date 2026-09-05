@@ -19,6 +19,7 @@ const payloadSchema = z.object({
   usersSpreadsheetId: z.string().trim().optional(),
   usersSheetName: z.string().trim().optional(),
   sheetName: z.string().trim().optional(),
+  geminiModel: z.string().trim().optional(),
 });
 
 export async function PUT(request: Request) {
@@ -43,6 +44,7 @@ export async function PUT(request: Request) {
       ),
       usersSheetName: body.usersSheetName?.trim() || current.usersSheetName,
       sheetName: body.sheetName?.trim() || current.sheetName,
+      geminiModel: body.geminiModel?.trim() || current.geminiModel,
     });
     return NextResponse.json(saved);
   } catch (error) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { sumAmountsByCategory } from "@/lib/accounting/category-mapper";
+import { sumSheetCategoryAmounts } from "@/lib/accounting/category-mapper";
 import { toSheetVendorName } from "@/lib/accounting/vendor-kind";
 import {
   buildSharedReceiptFileName,
@@ -100,6 +100,10 @@ export async function POST(request: Request) {
 
     const prepared: PreparedReceipt[] = payload.receipts.map((receipt, index) => {
       const totalAmount = resolveReceiptTotal(receipt);
+      const sheetAmounts = sumSheetCategoryAmounts(
+        receipt.items,
+        receipt.priceBasis,
+      );
       return {
         receiptIndex: index + 1,
         vendorName: receipt.vendorName,
@@ -111,8 +115,10 @@ export async function POST(request: Request) {
             receipt.vendorKind ?? "unknown",
             receipt.vendorName,
           ),
-          priceBasis: receipt.priceBasis,
-          categoryAmounts: sumAmountsByCategory(receipt.items),
+          priceBasis: sheetAmounts.taxIncluded
+            ? "tax_included"
+            : "tax_excluded",
+          categoryAmounts: sheetAmounts.amounts,
           totalAmount,
           fileName,
           fileUrl: "",

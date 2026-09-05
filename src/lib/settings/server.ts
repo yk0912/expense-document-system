@@ -1,3 +1,4 @@
+import { resolveGeminiModel } from "@/lib/ai/gemini-models";
 import { loadServerEnv, missingGoogleAuthKeys } from "@/lib/env";
 import { DEFAULT_USERS_SHEET_NAME } from "@/lib/auth/constants";
 import { createMemoryTtlCache } from "@/lib/cache/memory-ttl";
@@ -28,6 +29,7 @@ async function envSettings(): Promise<AppSettings> {
     issueSheetName: EMPTY_SETTINGS.issueSheetName,
     usersSpreadsheetId: spreadsheetId,
     usersSheetName: DEFAULT_USERS_SHEET_NAME,
+    geminiModel: resolveGeminiModel(env.geminiModel),
   };
 }
 
@@ -55,6 +57,7 @@ function pickFilled(
     usersSpreadsheetId:
       parseSpreadsheetId(overlay.usersSpreadsheetId ?? "") || base.usersSpreadsheetId,
     usersSheetName: overlay.usersSheetName?.trim() || base.usersSheetName,
+    geminiModel: overlay.geminiModel?.trim() || base.geminiModel,
   };
 }
 
@@ -150,6 +153,7 @@ export async function saveAppSettings(next: AppSettings): Promise<AppSettings> {
     usersSpreadsheetId:
       parseSpreadsheetId(next.usersSpreadsheetId) || spreadsheetId,
     usersSheetName: next.usersSheetName.trim() || DEFAULT_USERS_SHEET_NAME,
+    geminiModel: resolveGeminiModel(next.geminiModel),
   };
   await writeJsonFile(auth, normalized.driveFolderId, SETTINGS_FILE_NAME, normalized);
   settingsCache.set(normalized.driveFolderId, normalized);

@@ -42,49 +42,44 @@ function parseYenInput(raw: string): number | null {
   return Number(digits);
 }
 
-function PrintedAmountField({
-  label,
+function addAmounts(...values: Array<number | null>): number | null {
+  if (values.every((value) => value === null)) {
+    return null;
+  }
+  return values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+}
+
+function CompactYenInput({
   value,
   onChange,
 }: {
-  label: string;
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
   return (
-    <label className="block space-y-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <Input
-        inputMode="numeric"
-        className="h-11"
-        value={value ?? ""}
-        onChange={(event) => onChange(parseYenInput(event.target.value))}
-      />
-    </label>
+    <Input
+      inputMode="numeric"
+      className="h-9 min-w-20 tabular-nums"
+      value={value ?? ""}
+      onChange={(event) => onChange(parseYenInput(event.target.value))}
+    />
   );
 }
 
-function AmountLine({
-  label,
-  value,
-  compare,
+function MatchCell({
+  printed,
+  calculated,
 }: {
-  label: string;
-  value: number | null;
-  compare?: number | null;
+  printed: number | null;
+  calculated: number | null;
 }) {
-  const comparable = compare !== undefined && compare !== null && value !== null;
-  const mismatch = comparable && value !== compare;
-  return (
-    <p className={mismatch ? "text-destructive" : undefined}>
-      {label} {yen(value)}
-      {comparable ? (
-        <span className="ml-2 text-xs">
-          {mismatch ? "不一致" : "一致"}
-        </span>
-      ) : null}
-    </p>
-  );
+  if (printed === null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  if (calculated === null || printed !== calculated) {
+    return <span className="font-medium text-destructive">不一致</span>;
+  }
+  return <span className="text-muted-foreground">一致</span>;
 }
 
 type ReceiptReviewCardProps = {
@@ -110,6 +105,25 @@ export function ReceiptReviewCard({
   ) => {
     onChange(replaceReceiptItems(receipt, items, { recalculateTotal }));
   };
+
+  const printedTaxSum =
+    receipt.extractedSubtotalAmount === null ||
+    (receipt.extractedTaxAmount8 === null && receipt.extractedTaxAmount10 === null)
+      ? null
+      : addAmounts(
+          receipt.extractedSubtotalAmount,
+          receipt.extractedTaxAmount8,
+          receipt.extractedTaxAmount10,
+        );
+  const itemInclusive =
+    receipt.lineTotal === null
+      ? null
+      : addAmounts(
+          receipt.lineTotal,
+          receipt.itemTaxAmount8,
+          receipt.itemTaxAmount10,
+        );
+  const showItemCalc = receipt.entryMode === "line_items";
 
   return (
     <Card className="gap-0 overflow-hidden border-[3px] border-primary py-0 ring-0">
@@ -309,73 +323,181 @@ export function ReceiptReviewCard({
           </div>
         )}
 
-        <div className="space-y-3 text-sm">
-          <div className="space-y-2">
-            <div>
-              <p className="font-medium">レシート記載</p>
-              <p className="text-xs text-muted-foreground">
-                読み取りが違う場合は修正してください
-              </p>
-            </div>
-            <PrintedAmountField
-              label="小計（税抜・円）"
-              value={receipt.extractedSubtotalAmount}
-              onChange={(value) => update({ extractedSubtotalAmount: value })}
-            />
-            <PrintedAmountField
-              label="消費税8%対象合計（円）"
-              value={receipt.extractedTaxableAmount8}
-              onChange={(value) => update({ extractedTaxableAmount8: value })}
-            />
-            <PrintedAmountField
-              label="消費税 8%（円）"
-              value={receipt.extractedTaxAmount8}
-              onChange={(value) => update({ extractedTaxAmount8: value })}
-            />
-            <PrintedAmountField
-              label="消費税10%対象合計（円）"
-              value={receipt.extractedTaxableAmount10}
-              onChange={(value) => update({ extractedTaxableAmount10: value })}
-            />
-            <PrintedAmountField
-              label="消費税 10%（円）"
-              value={receipt.extractedTaxAmount10}
-              onChange={(value) => update({ extractedTaxAmount10: value })}
-            />
-            <PrintedAmountField
-              label="レシート合計（税込・円）"
-              value={receipt.extractedTotalAmount}
-              onChange={(value) =>
-                update({ extractedTotalAmount: value, totalAmount: value })
-              }
-            />
+        <div className="space-y-2">
+          <div>
+            <p className="font-medium">金額の照合</p>
+            <p className="text-xs text-muted-foreground">
+              レシート列は読み取りが違う場合に修正できます
+            </p>
           </div>
-          {receipt.entryMode === "line_items" ? (
-            <div className="space-y-1">
-              <p className="font-medium">各商品から計算</p>
-              <p>各商品の税抜合計 {yen(receipt.lineTotal)}</p>
-              <AmountLine
-                label="8%対象合計"
-                value={receipt.itemTaxableAmount8}
-                compare={receipt.taxableAmount8}
-              />
-              <AmountLine
-                label="消費税 8%"
-                value={receipt.itemTaxAmount8}
-                compare={receipt.taxAmount8}
-              />
-              <AmountLine
-                label="10%対象合計"
-                value={receipt.itemTaxableAmount10}
-                compare={receipt.taxableAmount10}
-              />
-              <AmountLine
-                label="消費税 10%"
-                value={receipt.itemTaxAmount10}
-                compare={receipt.taxAmount10}
-              />
-            </div>
-          ) : null}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[22rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="py-1.5 pr-2 font-medium">項目</th>
+                  <th className="py-1.5 pr-2 font-medium">レシート</th>
+                  {showItemCalc ? (
+                    <th className="py-1.5 pr-2 font-medium">商品計算</th>
+                  ) : null}
+                  {showItemCalc ? (
+                    <th className="py-1.5 font-medium">照合</th>
+                  ) : null}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border/70">
+                  <td className="py-1.5 pr-2">小計（税抜）</td>
+                  <td className="py-1.5 pr-2">
+                    <CompactYenInput
+                      value={receipt.extractedSubtotalAmount}
+                      onChange={(value) =>
+                        update({ extractedSubtotalAmount: value })
+                      }
+                    />
+                  </td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">{yen(receipt.lineTotal)}</td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell
+                        printed={receipt.extractedSubtotalAmount}
+                        calculated={receipt.lineTotal}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr className="border-b border-border/70">
+                  <td className="py-1.5 pr-2">8%対象合計</td>
+                  <td className="py-1.5 pr-2">
+                    <CompactYenInput
+                      value={receipt.extractedTaxableAmount8}
+                      onChange={(value) =>
+                        update({ extractedTaxableAmount8: value })
+                      }
+                    />
+                  </td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">
+                      {yen(receipt.itemTaxableAmount8)}
+                    </td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell
+                        printed={receipt.extractedTaxableAmount8}
+                        calculated={receipt.itemTaxableAmount8}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr className="border-b border-border/70">
+                  <td className="py-1.5 pr-2">消費税8%</td>
+                  <td className="py-1.5 pr-2">
+                    <CompactYenInput
+                      value={receipt.extractedTaxAmount8}
+                      onChange={(value) => update({ extractedTaxAmount8: value })}
+                    />
+                  </td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">
+                      {yen(receipt.itemTaxAmount8)}
+                    </td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell
+                        printed={receipt.extractedTaxAmount8}
+                        calculated={receipt.itemTaxAmount8}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr className="border-b border-border/70">
+                  <td className="py-1.5 pr-2">10%対象合計</td>
+                  <td className="py-1.5 pr-2">
+                    <CompactYenInput
+                      value={receipt.extractedTaxableAmount10}
+                      onChange={(value) =>
+                        update({ extractedTaxableAmount10: value })
+                      }
+                    />
+                  </td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">
+                      {yen(receipt.itemTaxableAmount10)}
+                    </td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell
+                        printed={receipt.extractedTaxableAmount10}
+                        calculated={receipt.itemTaxableAmount10}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr className="border-b border-border/70">
+                  <td className="py-1.5 pr-2">消費税10%</td>
+                  <td className="py-1.5 pr-2">
+                    <CompactYenInput
+                      value={receipt.extractedTaxAmount10}
+                      onChange={(value) =>
+                        update({ extractedTaxAmount10: value })
+                      }
+                    />
+                  </td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">
+                      {yen(receipt.itemTaxAmount10)}
+                    </td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell
+                        printed={receipt.extractedTaxAmount10}
+                        calculated={receipt.itemTaxAmount10}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr className="border-b border-border/70">
+                  <td className="py-1.5 pr-2">小計＋消費税</td>
+                  <td className="py-1.5 pr-2 tabular-nums">{yen(printedTaxSum)}</td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">{yen(itemInclusive)}</td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell printed={printedTaxSum} calculated={itemInclusive} />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr>
+                  <td className="py-1.5 pr-2">合計（税込）</td>
+                  <td className="py-1.5 pr-2">
+                    <CompactYenInput
+                      value={receipt.extractedTotalAmount}
+                      onChange={(value) =>
+                        update({ extractedTotalAmount: value, totalAmount: value })
+                      }
+                    />
+                  </td>
+                  {showItemCalc ? (
+                    <td className="py-1.5 pr-2 tabular-nums">{yen(itemInclusive)}</td>
+                  ) : null}
+                  {showItemCalc ? (
+                    <td className="py-1.5">
+                      <MatchCell
+                        printed={receipt.extractedTotalAmount}
+                        calculated={itemInclusive}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {receipt.warnings.length > 0 ? (

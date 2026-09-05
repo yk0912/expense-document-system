@@ -188,11 +188,13 @@ export function NewReceiptScreen() {
             vendorName: receipt.vendorName,
             vendorKind: receipt.vendorKind,
             totalAmount: receipt.totalAmount,
+            extractedTotalAmount: receipt.extractedTotalAmount,
             lineTotal: receipt.lineTotal,
             priceBasis: receipt.priceBasis,
             items: receipt.items.map((item) => ({
               name: item.name,
               amount: item.amount,
+              taxRate: item.taxRate,
               category: item.category,
             })),
           })),

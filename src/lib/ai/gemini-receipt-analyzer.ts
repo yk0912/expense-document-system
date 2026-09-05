@@ -1,5 +1,6 @@
 import { GoogleGenAI, ThinkingLevel, type ThinkingConfig } from "@google/genai";
 
+import { resolveGeminiModel } from "@/lib/ai/gemini-models";
 import type { ReceiptAnalyzer } from "@/lib/ai/receipt-analyzer";
 import {
   geminiReceiptAnalysisSchema,
@@ -114,18 +115,20 @@ function thinkingConfigForModel(
 }
 
 export class GeminiReceiptAnalyzer implements ReceiptAnalyzer {
+  constructor(private readonly modelName?: string) {}
+
   async analyze(
     image: Buffer,
     mimeType: string,
     categories: CategoryMasterItem[],
   ) {
-    const env = await loadServerEnv();
+    const env = loadServerEnv();
     const apiKey = env.geminiApiKey;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY が未設定です。.env.local に設定してください。");
     }
 
-    const model = env.geminiModel || "gemini-3.5-flash-lite";
+    const model = resolveGeminiModel(this.modelName, env.geminiModel);
     const client = new GoogleGenAI({ apiKey });
     const thinkingConfig = thinkingConfigForModel(model, env.geminiThinkingLevel);
     const response = await client.models.generateContent({

@@ -13,11 +13,23 @@ export function isReceiptReadyToRegister(receipt: ReviewReceipt): boolean {
   );
 }
 
+export function resolveTaxIncludedTotal(receipt: {
+  extractedTotalAmount?: number | null;
+  totalAmount: number | null;
+}): number | null {
+  return receipt.extractedTotalAmount ?? null;
+}
+
 export function resolveReceiptTotal(receipt: {
+  extractedTotalAmount?: number | null;
   totalAmount: number | null;
   lineTotal?: number | null;
   items: Array<{ amount: number | null }>;
 }): number {
+  const taxIncluded = resolveTaxIncludedTotal(receipt);
+  if (taxIncluded !== null) {
+    return taxIncluded;
+  }
   if (receipt.totalAmount !== null) {
     return receipt.totalAmount;
   }

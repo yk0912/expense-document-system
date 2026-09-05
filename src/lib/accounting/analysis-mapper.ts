@@ -128,94 +128,6 @@ function printedTotal(receipt: ReviewReceipt): number | null {
   return receipt.extractedTotalAmount ?? receipt.totalAmount;
 }
 
-function reconcilePrintedAndItems(
-  receipt: ReviewReceipt,
-  lineTotal: number | null,
-): string[] {
-  const warnings: string[] = [];
-  const subtotal = receipt.extractedSubtotalAmount;
-  const tax8 = receipt.extractedTaxAmount8;
-  const tax10 = receipt.extractedTaxAmount10;
-  const taxable8 = receipt.extractedTaxableAmount8;
-  const taxable10 = receipt.extractedTaxableAmount10;
-  const total = printedTotal(receipt);
-  const fromItems = taxBreakdownFromItems(
-    receipt.entryMode === "line_items" ? receipt.items : receipt.extractedItems,
-  );
-
-  if (
-    subtotal !== null &&
-    total !== null &&
-    (tax8 !== null || tax10 !== null)
-  ) {
-    const printedSum = subtotal + (tax8 ?? 0) + (tax10 ?? 0);
-    if (printedSum !== total) {
-      warnings.push(
-        `レシート記載の小計＋消費税（${printedSum.toLocaleString()}円）が合計（${total.toLocaleString()}円）と${Math.abs(printedSum - total).toLocaleString()}円一致しません。記載値は補正していません。`,
-      );
-    }
-  }
-
-  if (
-    receipt.entryMode === "line_items" &&
-    lineTotal !== null &&
-    subtotal !== null &&
-    lineTotal !== subtotal
-  ) {
-    warnings.push(
-      `各商品の税抜合計（${lineTotal.toLocaleString()}円）が小計（${subtotal.toLocaleString()}円）と${Math.abs(lineTotal - subtotal).toLocaleString()}円一致しません。読み取れなかった商品がある可能性があります。`,
-    );
-  }
-
-  if (
-    receipt.entryMode === "line_items" &&
-    fromItems.tax8 !== null &&
-    tax8 !== null &&
-    fromItems.tax8 !== tax8
-  ) {
-    warnings.push(
-      `各商品から計算した消費税8%（${fromItems.tax8.toLocaleString()}円）が記載額（${tax8.toLocaleString()}円）と一致しません。`,
-    );
-  }
-
-  if (
-    receipt.entryMode === "line_items" &&
-    fromItems.tax10 !== null &&
-    tax10 !== null &&
-    fromItems.tax10 !== tax10
-  ) {
-    warnings.push(
-      `各商品から計算した消費税10%（${fromItems.tax10.toLocaleString()}円）が記載額（${tax10.toLocaleString()}円）と一致しません。`,
-    );
-  }
-
-  if (
-    receipt.entryMode === "line_items" &&
-    taxable8 !== null &&
-    fromItems.taxable8 !== taxable8
-  ) {
-    warnings.push(
-      fromItems.taxable8 === null
-        ? `レシートに8%対象合計（${taxable8.toLocaleString()}円）がありますが、消費税8%の商品がありません。`
-        : `各商品の8%対象合計（${fromItems.taxable8.toLocaleString()}円）が記載額（${taxable8.toLocaleString()}円）と一致しません。`,
-    );
-  }
-
-  if (
-    receipt.entryMode === "line_items" &&
-    taxable10 !== null &&
-    fromItems.taxable10 !== taxable10
-  ) {
-    warnings.push(
-      fromItems.taxable10 === null
-        ? `レシートに10%対象合計（${taxable10.toLocaleString()}円）がありますが、消費税10%の商品がありません。`
-        : `各商品の10%対象合計（${fromItems.taxable10.toLocaleString()}円）が記載額（${taxable10.toLocaleString()}円）と一致しません。`,
-    );
-  }
-
-  return warnings;
-}
-
 export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
   const printed = {
     subtotalAmount: receipt.extractedSubtotalAmount,
@@ -235,8 +147,6 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     if (receipt.priceBasis === "unknown") {
       warnings.push("税込・税抜を確認してください");
     }
-    warnings.push(...reconcilePrintedAndItems(receipt, null));
-
     return {
       ...receipt,
       ...printed,
@@ -282,8 +192,6 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
   if (priceBasis === "unknown") {
     warnings.push("税込・税抜を確認してください");
   }
-  warnings.push(...reconcilePrintedAndItems({ ...receipt, entryMode: "line_items" }, lineTotal));
-
   return {
     ...receipt,
     ...printed,

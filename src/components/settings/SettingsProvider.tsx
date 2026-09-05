@@ -42,6 +42,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           issueSheetName: remote.issueSheetName || local.issueSheetName,
           usersSpreadsheetId: remote.usersSpreadsheetId || local.usersSpreadsheetId,
           usersSheetName: remote.usersSheetName || local.usersSheetName,
+          geminiModel: remote.geminiModel || local.geminiModel,
         };
         saveLocalSettings(merged);
         setSettingsState(merged);

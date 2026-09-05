@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppSettings } from "@/components/settings/SettingsProvider";
+import {
+  CUSTOM_GEMINI_MODEL,
+  isKnownGeminiModel,
+  type GeminiModelOption,
+} from "@/lib/ai/gemini-models";
 import { ADMIN_USER_NAME } from "@/lib/auth/constants";
 import { appFetch } from "@/lib/settings/client";
 import { parseSpreadsheetId, spreadsheetUrlFromId } from "@/lib/settings/parse";
@@ -29,6 +34,9 @@ export function SystemSettingsScreen() {
   const [sheetName, setSheetName] = useState<string | null>(null);
   const [usersSpreadsheetId, setUsersSpreadsheetId] = useState<string | null>(null);
   const [usersSheetName, setUsersSheetName] = useState<string | null>(null);
+  const [geminiModel, setGeminiModel] = useState<string | null>(null);
+  const [geminiModels, setGeminiModels] = useState<GeminiModelOption[]>([]);
+  const [geminiModelsError, setGeminiModelsError] = useState<string | null>(null);
   const [users, setUsers] = useState<EditableUser[] | null>(null);
   const [newUserName, setNewUserName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +81,29 @@ export function SystemSettingsScreen() {
           toEditableUsers(payload.users ?? [{ name: ADMIN_USER_NAME, role: "admin" }]),
         );
       });
+    void fetch("/api/settings/gemini-models")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          models?: GeminiModelOption[];
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Geminiのモデル一覧を取得できませんでした。");
+        }
+        return payload;
+      })
+      .then((payload) => {
+        setGeminiModels(payload.models ?? []);
+        setGeminiModelsError(null);
+      })
+      .catch((loadError: unknown) => {
+        setGeminiModels([]);
+        setGeminiModelsError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Geminiのモデル一覧を取得できませんでした。",
+        );
+      });
   }, []);
 
   const spreadsheetIdValue = spreadsheetId ?? settings.spreadsheetId;
@@ -80,6 +111,10 @@ export function SystemSettingsScreen() {
   const sheetNameValue = sheetName ?? settings.sheetName;
   const usersSpreadsheetIdValue = usersSpreadsheetId ?? settings.usersSpreadsheetId;
   const usersSheetNameValue = usersSheetName ?? settings.usersSheetName;
+  const geminiModelValue = geminiModel ?? settings.geminiModel;
+  const geminiSelectValue = isKnownGeminiModel(geminiModelValue, geminiModels)
+    ? geminiModelValue
+    : CUSTOM_GEMINI_MODEL;
 
   const handleSave = async () => {
     setError(null);
@@ -96,6 +131,7 @@ export function SystemSettingsScreen() {
           sheetName: sheetNameValue,
           usersSpreadsheetId: parseSpreadsheetId(usersSpreadsheetIdValue),
           usersSheetName: usersSheetNameValue,
+          geminiModel: geminiModelValue,
         }),
       });
       const payload = (await response.json()) as AppSettings & { error?: string };
@@ -108,6 +144,7 @@ export function SystemSettingsScreen() {
       setSheetName(null);
       setUsersSpreadsheetId(null);
       setUsersSheetName(null);
+      setGeminiModel(null);
       if (users) {
         const usersResponse = await appFetch("/api/auth/users", {
           method: "PUT",
@@ -205,6 +242,52 @@ export function SystemSettingsScreen() {
             登録時は「フォーマット」シートをコピーし、この名前とログイン名をアンダースコアでつないだシート（シート名_ログイン名）へ書き込みます。同じ名前のシートがあれば、そのシートの一番下に追記します。
           </span>
         </label>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <h2 className="text-sm font-medium">レシート読み取り</h2>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted-foreground">Geminiモデル</span>
+          <select
+            className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+            value={geminiSelectValue}
+            disabled={!unlocked}
+            onChange={(event) => {
+              const value = event.target.value;
+              setGeminiModel(value === CUSTOM_GEMINI_MODEL ? "" : value);
+              setSaved(false);
+            }}
+          >
+            {geminiModels.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+            <option value={CUSTOM_GEMINI_MODEL}>その他（手入力）</option>
+          </select>
+        </label>
+        {geminiSelectValue === CUSTOM_GEMINI_MODEL ? (
+          <label className="block space-y-1">
+            <span className="text-xs text-muted-foreground">モデルID</span>
+            <Input
+              className="h-11"
+              value={geminiModelValue}
+              disabled={!unlocked}
+              placeholder="gemini-3.5-flash-lite"
+              onChange={(event) => {
+                setGeminiModel(event.target.value);
+                setSaved(false);
+              }}
+              autoComplete="off"
+            />
+          </label>
+        ) : null}
+        {geminiModelsError ? (
+          <p className="text-sm text-destructive">{geminiModelsError}</p>
+        ) : null}
+        <p className="text-xs leading-5 text-muted-foreground">
+          この環境の API キーで generateContent できるモデルです。Gemini 2.5 は新規キーでは 404 になるため出していません。
+        </p>
       </section>
 
       <section className="space-y-3 rounded-xl border border-border p-4">

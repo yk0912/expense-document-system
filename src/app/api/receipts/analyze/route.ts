@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       categorySheetName: settings.categorySheetName,
     });
     const image = Buffer.from(await file.arrayBuffer());
-    const analyzer = new GeminiReceiptAnalyzer();
+    const analyzer = new GeminiReceiptAnalyzer(settings.geminiModel);
     const analysis = await analyzer.analyze(image, mimeType, categories);
     const imageToken = storeReceiptImage(image, mimeType);
 
