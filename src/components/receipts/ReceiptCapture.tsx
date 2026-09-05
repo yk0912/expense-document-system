@@ -24,7 +24,15 @@ export function ReceiptCapture({ disabled, onFile, openCamera = false }: Receipt
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const lastFileKeyRef = useRef("");
   const [liveOpen, setLiveOpen] = useState(false);
+  const [cameraRequest, setCameraRequest] = useState(openCamera);
   const [hint, setHint] = useState<string | null>(null);
+
+  if (openCamera !== cameraRequest) {
+    setCameraRequest(openCamera);
+    if (openCamera && typeof window !== "undefined" && canUseLiveCamera()) {
+      setLiveOpen(true);
+    }
+  }
 
   const takeFile = useCallback((file: File) => {
     const key = `${file.name}-${file.size}-${file.lastModified}`;
@@ -43,12 +51,6 @@ export function ReceiptCapture({ disabled, onFile, openCamera = false }: Receipt
     }
     event.target.value = "";
   };
-
-  useEffect(() => {
-    if (openCamera && canUseLiveCamera()) {
-      setLiveOpen(true);
-    }
-  }, [openCamera]);
 
   useEffect(() => {
     const input = libraryInputRef.current;

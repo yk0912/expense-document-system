@@ -366,7 +366,6 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
 export function replaceReceiptItems(
   receipt: ReviewReceipt,
   items: ReviewItem[],
-  _options: { recalculateTotal?: boolean } = {},
 ): ReviewReceipt {
   return summarizeReceipt({
     ...receipt,

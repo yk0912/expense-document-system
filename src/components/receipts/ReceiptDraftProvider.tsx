@@ -57,12 +57,12 @@ export function ReceiptDraftProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const analyzeAbortRef = useRef<AbortController | null>(null);
   const imageRef = useRef<CompressedReceiptImage | null>(null);
-  imageRef.current = image;
 
   const replaceImage = useCallback((next: CompressedReceiptImage | null) => {
     analyzeAbortRef.current?.abort();
     analyzeAbortRef.current = null;
     revokePreview(imageRef.current);
+    imageRef.current = next;
     setImageState(next);
     setAnalysis(null);
     setResults(null);

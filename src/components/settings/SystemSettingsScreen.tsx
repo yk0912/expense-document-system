@@ -42,11 +42,11 @@ export function SystemSettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
+  const [verifiedPassword, setVerifiedPassword] = useState<string | null>(null);
+  const unlocked = password !== "" && verifiedPassword === password;
 
   useEffect(() => {
     if (!password) {
-      setUnlocked(false);
       return;
     }
     const controller = new AbortController();
@@ -58,13 +58,14 @@ export function SystemSettingsScreen() {
         signal: controller.signal,
       })
         .then((response) => {
-          setUnlocked(response.ok);
+          if (response.ok) {
+            setVerifiedPassword(password);
+          }
         })
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") {
             return;
           }
-          setUnlocked(false);
         });
     }, 200);
     return () => {

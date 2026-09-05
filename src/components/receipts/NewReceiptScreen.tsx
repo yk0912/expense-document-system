@@ -21,7 +21,6 @@ import { viewableReceiptUrl } from "@/lib/google/drive-file";
 import { appFetch } from "@/lib/settings/client";
 import type {
   AnalyzeResponse,
-  RegisterReceiptResult,
   RegisterResponse,
   ReviewReceipt,
 } from "@/types/receipt";

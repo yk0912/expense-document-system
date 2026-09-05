@@ -117,11 +117,8 @@ export function ReceiptReviewCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receipt.clientId]);
 
-  const updateItems = (
-    items: ReviewReceipt["items"],
-    recalculateTotal = false,
-  ) => {
-    onChange(replaceReceiptItems(receipt, items, { recalculateTotal }));
+  const updateItems = (items: ReviewReceipt["items"]) => {
+    onChange(replaceReceiptItems(receipt, items));
   };
 
   const printedTaxSum = printedInclusiveFromGroups({
@@ -311,7 +308,6 @@ export function ReceiptReviewCard({
                   replaceReceiptItems(
                     { ...receipt, entryMode: "line_items" },
                     [...baseItems, createEmptyReviewItem()],
-                    { recalculateTotal: true },
                   ),
                 );
               }}
@@ -344,7 +340,6 @@ export function ReceiptReviewCard({
                     receipt.items.map((current) =>
                       current.clientId === nextItem.clientId ? nextItem : current,
                     ),
-                    nextItem.amount !== item.amount,
                   )
                 }
                 onRemove={() =>
@@ -352,7 +347,6 @@ export function ReceiptReviewCard({
                     receipt.items.filter(
                       (current) => current.clientId !== item.clientId,
                     ),
-                    true,
                   )
                 }
               />
@@ -362,7 +356,7 @@ export function ReceiptReviewCard({
               variant="outline"
               className="h-11 w-full"
               onClick={() =>
-                updateItems([...receipt.items, createEmptyReviewItem()], true)
+                updateItems([...receipt.items, createEmptyReviewItem()])
               }
             >
               商品を追加

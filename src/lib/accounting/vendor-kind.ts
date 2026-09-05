@@ -57,10 +57,13 @@ export function toSheetVendorName(
 }
 
 export function resolveEntryMode(
-  _vendorKind: VendorKind,
-  _hasUsableLineItems: boolean,
-  _totalAmount: number | null,
+  vendorKind: VendorKind,
+  hasUsableLineItems: boolean,
+  totalAmount: number | null,
 ): EntryMode {
+  void vendorKind;
+  void hasUsableLineItems;
+  void totalAmount;
   return "lump_sum";
 }
 

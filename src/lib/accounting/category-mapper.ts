@@ -28,7 +28,12 @@ function sheetItemKind(
   if (item.taxKind === "included" || item.taxKind === "excluded") {
     return item.taxKind;
   }
-  return priceBasis === "tax_included" ? "included" : resolveItemTaxKind(item);
+  return priceBasis === "tax_included"
+    ? "included"
+    : resolveItemTaxKind({
+        taxRate: item.taxRate ?? null,
+        taxKind: item.taxKind,
+      });
 }
 
 export function sheetInclusiveAmount(
