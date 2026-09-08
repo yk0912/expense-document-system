@@ -335,13 +335,32 @@ export function ReceiptReviewCard({
                 categories={categories}
                 defaultTaxKind8={receipt.taxKind8}
                 defaultTaxKind10={receipt.taxKind10}
-                onChange={(nextItem) =>
-                  updateItems(
-                    receipt.items.map((current) =>
-                      current.clientId === nextItem.clientId ? nextItem : current,
+                onChange={(nextItem) => {
+                  const previous = receipt.items.find(
+                    (current) => current.clientId === nextItem.clientId,
+                  );
+                  const rate = itemTaxPercent(nextItem.taxRate);
+                  const taxKindChanged = previous?.taxKind !== nextItem.taxKind;
+                  const patched = {
+                    ...receipt,
+                    ...(taxKindChanged && rate === 8
+                      ? { taxKind8Locked: false }
+                      : {}),
+                    ...(taxKindChanged && rate === 10
+                      ? { taxKind10Locked: false }
+                      : {}),
+                  };
+                  onChange(
+                    replaceReceiptItems(
+                      patched,
+                      receipt.items.map((current) =>
+                        current.clientId === nextItem.clientId
+                          ? nextItem
+                          : current,
+                      ),
                     ),
-                  )
-                }
+                  );
+                }}
                 onRemove={() =>
                   updateItems(
                     receipt.items.filter(
@@ -372,41 +391,57 @@ export function ReceiptReviewCard({
             </p>
           </div>
           {showItemCalc ? (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">8% 内税 / 外税</span>
-                <select
-                  className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
-                  value={receipt.taxKind8 ?? ""}
-                  onChange={(event) =>
-                    setRateTaxKind(
-                      8,
-                      (event.target.value || null) as TaxKind | null,
-                    )
-                  }
-                >
-                  <option value="">未設定</option>
-                  <option value="included">内税</option>
-                  <option value="excluded">外税</option>
-                </select>
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">10% 内税 / 外税</span>
-                <select
-                  className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
-                  value={receipt.taxKind10 ?? ""}
-                  onChange={(event) =>
-                    setRateTaxKind(
-                      10,
-                      (event.target.value || null) as TaxKind | null,
-                    )
-                  }
-                >
-                  <option value="">未設定</option>
-                  <option value="included">内税</option>
-                  <option value="excluded">外税</option>
-                </select>
-              </label>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1">
+                  <span className="text-xs text-muted-foreground">8% 内税 / 外税</span>
+                  <select
+                    className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+                    value={receipt.taxKind8 ?? ""}
+                    onChange={(event) =>
+                      setRateTaxKind(
+                        8,
+                        (event.target.value || null) as TaxKind | null,
+                      )
+                    }
+                  >
+                    <option value="">未設定</option>
+                    <option value="included">内税</option>
+                    <option value="excluded">外税</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-muted-foreground">10% 内税 / 外税</span>
+                  <select
+                    className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base"
+                    value={receipt.taxKind10 ?? ""}
+                    onChange={(event) =>
+                      setRateTaxKind(
+                        10,
+                        (event.target.value || null) as TaxKind | null,
+                      )
+                    }
+                  >
+                    <option value="">未設定</option>
+                    <option value="included">内税</option>
+                    <option value="excluded">外税</option>
+                  </select>
+                </label>
+              </div>
+              {receipt.items.some(
+                (item) =>
+                  itemTaxPercent(item.taxRate) === 10 &&
+                  item.taxKind === "included",
+              ) &&
+              receipt.items.some(
+                (item) =>
+                  itemTaxPercent(item.taxRate) === 10 &&
+                  item.taxKind === "excluded",
+              ) ? (
+                <p className="text-xs text-muted-foreground">
+                  10%に内税と外税が混在しています。各商品の「内税 / 外税」で設定してください
+                </p>
+              ) : null}
             </div>
           ) : null}
           <div>

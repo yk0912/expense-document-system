@@ -160,11 +160,43 @@ function sumRateAmounts(
   return sumAmounts(amounts);
 }
 
+function itemTaxKindsForRate(
+  items: ReviewReceipt["items"],
+  rate: 8 | 10,
+): TaxKind[] {
+  const kinds: TaxKind[] = [];
+  for (const item of items) {
+    if (itemTaxPercent(item.taxRate) !== rate) {
+      continue;
+    }
+    if (item.taxKind === "included" || item.taxKind === "excluded") {
+      kinds.push(item.taxKind);
+    }
+  }
+  return kinds;
+}
+
+function hasMixedTaxKinds(items: ReviewReceipt["items"], rate: 8 | 10): boolean {
+  const kinds = itemTaxKindsForRate(items, rate);
+  return kinds.includes("included") && kinds.includes("excluded");
+}
+
+function allTaxableItemsHaveKind(items: ReviewReceipt["items"]): boolean {
+  const taxable = items.filter((item) => {
+    const percent = itemTaxPercent(item.taxRate);
+    return percent === 8 || percent === 10;
+  });
+  return (
+    taxable.length > 0 &&
+    taxable.every(
+      (item) => item.taxKind === "included" || item.taxKind === "excluded",
+    )
+  );
+}
+
 function resolveReceiptTaxKinds(receipt: ReviewReceipt): {
   taxKind8: TaxKind | null;
   taxKind10: TaxKind | null;
-  inferred8: boolean;
-  inferred10: boolean;
 } {
   const items =
     receipt.entryMode === "line_items" ? receipt.items : receipt.extractedItems;
@@ -184,8 +216,6 @@ function resolveReceiptTaxKinds(receipt: ReviewReceipt): {
     taxKind10: receipt.taxKind10Locked
       ? receipt.taxKind10
       : inferred10 ?? receipt.taxKind10,
-    inferred8: !receipt.taxKind8Locked && inferred8 !== null,
-    inferred10: !receipt.taxKind10Locked && inferred10 !== null,
   };
 }
 
@@ -228,19 +258,35 @@ function applyTaxKindsToItems(
   items: ReviewReceipt["items"],
   taxKind8: TaxKind | null,
   taxKind10: TaxKind | null,
-  force8 = false,
-  force10 = false,
 ): ReviewReceipt["items"] {
   return items.map((item) => {
     const percent = itemTaxPercent(item.taxRate);
-    if (percent === 8 && taxKind8 && (force8 || item.taxKind == null)) {
+    // 未設定の商品だけ補完する。既に内税/外税がある商品は上書きしない
+    // （同じ税率で内税と外税が混在するレシート、および手動変更を残すため）
+    if (percent === 8 && taxKind8 && item.taxKind == null) {
       return { ...item, taxKind: taxKind8 };
     }
-    if (percent === 10 && taxKind10 && (force10 || item.taxKind == null)) {
+    if (percent === 10 && taxKind10 && item.taxKind == null) {
       return { ...item, taxKind: taxKind10 };
     }
     return item;
   });
+}
+
+function displayTaxKindForRate(
+  items: ReviewReceipt["items"],
+  rate: 8 | 10,
+  resolved: TaxKind | null,
+): TaxKind | null {
+  const rateItems = items.filter((item) => itemTaxPercent(item.taxRate) === rate);
+  const kinds = itemTaxKindsForRate(items, rate);
+  if (kinds.includes("included") && kinds.includes("excluded")) {
+    return null;
+  }
+  if (rateItems.length > 0 && kinds.length === rateItems.length) {
+    return kinds[0] ?? resolved;
+  }
+  return resolved;
 }
 
 export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
@@ -252,21 +298,21 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     taxableAmount10: receipt.extractedTaxableAmount10,
     totalAmount: printedTotal(receipt),
   };
-  const { taxKind8, taxKind10, inferred8, inferred10 } = resolveReceiptTaxKinds(receipt);
+  const resolved = resolveReceiptTaxKinds(receipt);
   const items = applyTaxKindsToItems(
     receipt.items,
-    taxKind8,
-    taxKind10,
-    inferred8,
-    inferred10,
+    resolved.taxKind8,
+    resolved.taxKind10,
   );
   const extractedItems = applyTaxKindsToItems(
     receipt.extractedItems,
-    taxKind8,
-    taxKind10,
-    inferred8,
-    inferred10,
+    resolved.taxKind8,
+    resolved.taxKind10,
   );
+  const taxKind8 = displayTaxKindForRate(items, 8, resolved.taxKind8);
+  const taxKind10 = displayTaxKindForRate(items, 10, resolved.taxKind10);
+  const mixed8 = hasMixedTaxKinds(items, 8);
+  const mixed10 = hasMixedTaxKinds(items, 10);
   const fromItems = taxBreakdownFromItems(
     receipt.entryMode === "line_items" ? items : extractedItems,
     { taxKind8, taxKind10 },
@@ -284,6 +330,8 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
       extractedItems,
       taxKind8,
       taxKind10,
+      taxKind8Locked: mixed8 ? false : receipt.taxKind8Locked,
+      taxKind10Locked: mixed10 ? false : receipt.taxKind10Locked,
       priceBasis,
       totalAmount: amount,
       lineTotal: amount,
@@ -338,7 +386,8 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
         ? "tax_excluded"
         : amountsAlreadyInclusive
           ? "tax_included"
-          : (priceBasisFromKinds ?? "unknown");
+          : (priceBasisFromKinds ??
+            (allTaxableItemsHaveKind(items) ? "tax_included" : "unknown"));
 
   if (priceBasis === "unknown") {
     warnings.push("商品の金額が税込か税抜か確認してください");
@@ -350,6 +399,8 @@ export function summarizeReceipt(receipt: ReviewReceipt): ReviewReceipt {
     extractedItems,
     taxKind8,
     taxKind10,
+    taxKind8Locked: mixed8 ? false : receipt.taxKind8Locked,
+    taxKind10Locked: mixed10 ? false : receipt.taxKind10Locked,
     priceBasis,
     lineTotal,
     itemTaxAmount8: fromItems.tax8,
