@@ -49,16 +49,14 @@ function toReviewItem(
   },
   index: number,
   categoryNames: Set<string>,
-  masterEmpty: boolean,
   categories: CategoryMasterItem[],
   taxKind8: TaxKind | null,
   taxKind10: TaxKind | null,
 ): ReviewItem {
   const suggested = item.suggestedCategory ?? item.category ?? null;
-  const resolved = suggested
+  const category = suggested
     ? matchCategoryName(suggested, categoryNames)
     : null;
-  const category = resolved ?? (masterEmpty ? suggested : null);
   const extractedTaxRate = item.taxRate ?? null;
   const taxRate =
     extractedTaxRate !== null && extractedTaxRate !== 0
@@ -477,7 +475,6 @@ export function toAnalyzeResponse(
   imageToken: string,
 ): AnalyzeResponse {
   const categoryNames = new Set(categories.map((category) => category.name));
-  const masterEmpty = categories.length === 0;
 
   const receipts: ReviewReceipt[] = analysis.receipts.map((receipt, receiptIndex) => {
     const extractedItems = receipt.items.map((item, itemIndex) =>
@@ -485,7 +482,6 @@ export function toAnalyzeResponse(
         item,
         itemIndex,
         categoryNames,
-        masterEmpty,
         categories,
         receipt.taxKind8 ?? null,
         receipt.taxKind10 ?? null,
@@ -547,29 +543,10 @@ export function toAnalyzeResponse(
     return applyEntryMode(base, entryMode, categories, lumpCategory);
   });
 
-  const suggestedNames = receipts.flatMap((receipt) =>
-    receipt.items
-      .map((item) => item.category)
-      .filter((name): name is string => Boolean(name)),
-  );
-  const mergedCategories = masterEmpty
-    ? [
-        ...categories,
-        ...suggestedNames
-          .filter((name) => !categoryNames.has(name))
-          .map((name) => ({
-            name,
-            examples: null,
-            taxRate: null,
-            description: null,
-          })),
-      ]
-    : categories;
-
   return {
     imageToken,
     receipts,
-    categories: mergedCategories,
+    categories,
     categoryMasterWarning,
   };
 }

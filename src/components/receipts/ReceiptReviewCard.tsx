@@ -24,7 +24,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { itemTaxPercent, printedInclusiveFromGroups } from "@/lib/accounting/amount-check";
+import {
+  excludedBaseForRate,
+  hasMixedItemTaxKinds,
+  itemTaxPercent,
+  printedInclusiveFromGroups,
+} from "@/lib/accounting/amount-check";
 import { missingItemSettings } from "@/lib/accounting/registration";
 import {
   PRICE_BASES,
@@ -129,6 +134,10 @@ export function ReceiptReviewCard({
     tax10: receipt.extractedTaxAmount10,
     taxKind8: receipt.taxKind8,
     taxKind10: receipt.taxKind10,
+    mixed8: hasMixedItemTaxKinds(receipt.items, 8),
+    mixed10: hasMixedItemTaxKinds(receipt.items, 10),
+    excludedBase8: excludedBaseForRate(receipt.items, 8),
+    excludedBase10: excludedBaseForRate(receipt.items, 10),
   });
   const itemInclusive = receipt.itemInclusiveTotal;
   const showItemCalc = receipt.entryMode === "line_items";

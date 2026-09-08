@@ -21,6 +21,7 @@ import { viewableReceiptUrl } from "@/lib/google/drive-file";
 import { appFetch } from "@/lib/settings/client";
 import type {
   AnalyzeResponse,
+  CategoryMasterItem,
   RegisterResponse,
   ReviewReceipt,
 } from "@/types/receipt";
@@ -50,9 +51,26 @@ export function NewReceiptScreen() {
   } = useReceiptDraft();
   const [isCompressing, setIsCompressing] = useState(false);
   const [openCameraOnCapture, setOpenCameraOnCapture] = useState(false);
+  const [masterCategories, setMasterCategories] = useState<CategoryMasterItem[]>(
+    [],
+  );
+  const [masterWarning, setMasterWarning] = useState<string | null>(null);
 
   useEffect(() => {
-    void appFetch("/api/receipts/categories").catch(() => undefined);
+    void appFetch("/api/receipts/categories")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          categories?: CategoryMasterItem[];
+          warning?: string | null;
+        };
+        if (Array.isArray(payload.categories)) {
+          setMasterCategories(payload.categories);
+        }
+        setMasterWarning(payload.warning ?? null);
+      })
+      .catch(() => {
+        setMasterWarning("経費区分を取得できませんでした。");
+      });
   }, []);
 
   const analyzeImage = async (target: CompressedReceiptImage) => {
@@ -96,7 +114,17 @@ export function NewReceiptScreen() {
         throw new Error(payload.error ?? "読み取りに失敗しました。");
       }
       setProgress({ label: "読み取りが完了しました", percent: 100 });
-      setAnalysis(payload);
+      setAnalysis({
+        ...payload,
+        categories:
+          (payload.categories?.length ?? 0) > 0
+            ? payload.categories
+            : masterCategories,
+        categoryMasterWarning:
+          (payload.categories?.length ?? 0) > 0
+            ? payload.categoryMasterWarning
+            : payload.categoryMasterWarning ?? masterWarning,
+      });
       setResults(null);
     } catch (analyzeError) {
       if (controller.signal.aborted || (analyzeError instanceof DOMException && analyzeError.name === "AbortError")) {
@@ -232,6 +260,14 @@ export function NewReceiptScreen() {
 
   const registeredAll =
     results !== null && results.length > 0 && results.every((result) => result.ok);
+  const reviewCategories =
+    analysis && analysis.categories.length > 0
+      ? analysis.categories
+      : masterCategories;
+  const categoryWarning =
+    (analysis?.categoryMasterWarning ||
+      (reviewCategories.length === 0 ? masterWarning : null)) ??
+    null;
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-6">
@@ -270,6 +306,11 @@ export function NewReceiptScreen() {
           {error ? (
             <p className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
+            </p>
+          ) : null}
+          {masterWarning && masterCategories.length === 0 ? (
+            <p className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              経費区分を読み込めません。{masterWarning}
             </p>
           ) : null}
           {isCompressing ? (
@@ -363,16 +404,17 @@ export function NewReceiptScreen() {
 
       {analysis && !registeredAll ? (
         <div className="space-y-4">
-          {analysis.categoryMasterWarning ? (
-            <p className="whitespace-pre-wrap text-sm text-destructive">
-              {analysis.categoryMasterWarning}
+          {analysis.categoryMasterWarning || reviewCategories.length === 0 ? (
+            <p className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {categoryWarning ??
+                "経費区分マスタを取得できなかったため、プルダウンに区分が表示されません。"}
             </p>
           ) : null}
           {analysis.receipts.map((receipt) => (
             <ReceiptReviewCard
               key={receipt.clientId}
               receipt={receipt}
-              categories={analysis.categories}
+              categories={reviewCategories}
               onChange={(next) =>
                 setAnalysis({
                   ...analysis,

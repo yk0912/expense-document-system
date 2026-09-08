@@ -12,7 +12,7 @@ import type { CategoryMasterItem } from "@/types/receipt";
 function buildPrompt(categories: CategoryMasterItem[]): string {
   const master =
     categories.length === 0
-      ? "経費区分マスタは未取得です。商品内容から一般的な経費区分名（例: 材料）を候補として返してください。判断できない場合のみ null と requiresReview true にしてください。「その他」は使わないでください。"
+      ? "経費区分マスタは未取得です。suggestedCategory は必ず null にして、requiresReview を true にしてください。食料品・食品・その他など、自分で区分名を作ってはいけません。"
       : categories
           .map((category) => {
             const extras = [
@@ -74,11 +74,13 @@ dining の場合:
 - 合計金額はレシート/領収証の支払合計を totalAmount に入れてください。明細が無い領収証でも totalAmount は必須です。
 
 retail の場合:
-- 商品ごとにマスタから suggestedCategory を付けてください。
+- 商品ごとに、下の経費区分マスタの名称と一致する suggestedCategory だけを付けてください。
+- 野菜・果物・肉・魚・日配などのスーパーの食材は、マスタにある「材料」「食材」など食材向けの区分を使ってください。「食料品」「食品」はマスタに無い限り禁止です。
+- ゴミ袋・ポリ袋などの消耗品は、マスタにある消耗品・備品など該当する区分を使ってください。
 - suggestedLumpCategory は null。
-- 判断できない商品は「その他」にせず suggestedCategory を null、requiresReview を true にしてください。
+- 判断できない商品は suggestedCategory を null、requiresReview を true にしてください。「その他」「食料品」は使わないでください。
 
-マスタに無い区分名は使わないでください。
+マスタに無い区分名は絶対に使わないでください。推測で新しい区分名を作ってはいけません。
 
 経費区分マスタ:
 ${master}`;

@@ -17,5 +17,6 @@ export async function GET(request: Request) {
     ok: result.categories.length > 0,
     count: result.categories.length,
     warning: result.warning,
+    categories: result.categories,
   });
 }

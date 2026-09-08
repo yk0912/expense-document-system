@@ -120,6 +120,90 @@ export function inferTaxKind(
   return null;
 }
 
+export function excludedBaseForRate(
+  items: Array<{
+    amount: number | null;
+    taxRate: number | null;
+    taxKind?: TaxKind | null;
+  }>,
+  rate: 8 | 10,
+): number | null {
+  const amounts = items
+    .filter(
+      (item) =>
+        itemTaxPercent(item.taxRate) === rate && item.taxKind === "excluded",
+    )
+    .map((item) => item.amount);
+  if (amounts.length === 0) {
+    return null;
+  }
+  return sumAmounts(amounts);
+}
+
+export function hasMixedItemTaxKinds(
+  items: Array<{ taxRate: number | null; taxKind?: TaxKind | null }>,
+  rate: 8 | 10,
+): boolean {
+  let included = false;
+  let excluded = false;
+  for (const item of items) {
+    if (itemTaxPercent(item.taxRate) !== rate) {
+      continue;
+    }
+    if (item.taxKind === "included") {
+      included = true;
+    }
+    if (item.taxKind === "excluded") {
+      excluded = true;
+    }
+  }
+  return included && excluded;
+}
+
+function extraTaxForGroup(
+  kind: TaxKind | null,
+  printedTax: number | null,
+  mixed: boolean,
+  excludedBase: number | null,
+  rate: 8 | 10,
+): number {
+  if (kind === "included") {
+    return 0;
+  }
+  if (mixed && excludedBase !== null) {
+    return consumptionTaxFromBase(excludedBase, rate, "excluded");
+  }
+  return printedTax ?? 0;
+}
+
+function addPrintedRateGroup(
+  taxable: number | null,
+  printedTax: number | null,
+  kind: TaxKind | null,
+  mixed: boolean,
+  excludedBase: number | null,
+  rate: 8 | 10,
+): { add: number; used: boolean } {
+  if (taxable === null && printedTax === null) {
+    return { add: 0, used: false };
+  }
+  if (kind === "included") {
+    return { add: taxable ?? 0, used: taxable !== null };
+  }
+  let add = 0;
+  let used = false;
+  if (taxable !== null) {
+    add += taxable;
+    used = true;
+  }
+  const extra = extraTaxForGroup(kind, printedTax, mixed, excludedBase, rate);
+  add += extra;
+  if (taxable !== null || printedTax !== null || mixed) {
+    used = true;
+  }
+  return { add, used };
+}
+
 export function printedInclusiveFromGroups(input: {
   subtotal: number | null;
   taxable8: number | null;
@@ -128,43 +212,47 @@ export function printedInclusiveFromGroups(input: {
   tax10: number | null;
   taxKind8: TaxKind | null;
   taxKind10: TaxKind | null;
+  mixed8?: boolean;
+  mixed10?: boolean;
+  excludedBase8?: number | null;
+  excludedBase10?: number | null;
 }): number | null {
+  const mixed8 = Boolean(input.mixed8);
+  const mixed10 = Boolean(input.mixed10);
   const hasTaxable = input.taxable8 !== null || input.taxable10 !== null;
   if (hasTaxable) {
     let sum = 0;
     let used = false;
     if (input.taxable8 !== null || input.tax8 !== null) {
-      if (input.taxKind8 === "included") {
-        if (input.taxable8 !== null) {
-          sum += input.taxable8;
-          used = true;
-        }
-      } else {
-        if (input.taxable8 !== null) {
-          sum += input.taxable8;
-          used = true;
-        }
-        if (input.tax8 !== null) {
-          sum += input.tax8;
-          used = true;
-        }
-      }
+      const group = addPrintedRateGroup(
+        input.taxable8,
+        input.tax8,
+        input.taxKind8,
+        mixed8,
+        input.excludedBase8 ?? null,
+        8,
+      );
+      sum += group.add;
+      used = used || group.used;
     }
     if (input.taxable10 !== null || input.tax10 !== null) {
-      if (input.taxKind10 === "included") {
-        if (input.taxable10 !== null) {
-          sum += input.taxable10;
-          used = true;
-        }
-      } else {
-        if (input.taxable10 !== null) {
-          sum += input.taxable10;
-          used = true;
-        }
-        if (input.tax10 !== null) {
-          sum += input.tax10;
-          used = true;
-        }
+      const group = addPrintedRateGroup(
+        input.taxable10,
+        input.tax10,
+        input.taxKind10,
+        mixed10,
+        input.excludedBase10 ?? null,
+        10,
+      );
+      sum += group.add;
+      used = used || group.used;
+    }
+    if (input.subtotal !== null) {
+      const covered = (input.taxable8 ?? 0) + (input.taxable10 ?? 0);
+      const leftover = input.subtotal - covered;
+      if (leftover > 0) {
+        sum += leftover;
+        used = true;
       }
     }
     return used ? sum : null;
@@ -175,8 +263,20 @@ export function printedInclusiveFromGroups(input: {
   }
   return (
     input.subtotal +
-    (input.taxKind8 === "included" ? 0 : (input.tax8 ?? 0)) +
-    (input.taxKind10 === "included" ? 0 : (input.tax10 ?? 0))
+    extraTaxForGroup(
+      input.taxKind8,
+      input.tax8,
+      mixed8,
+      input.excludedBase8 ?? null,
+      8,
+    ) +
+    extraTaxForGroup(
+      input.taxKind10,
+      input.tax10,
+      mixed10,
+      input.excludedBase10 ?? null,
+      10,
+    )
   );
 }
 

@@ -290,24 +290,37 @@ export async function fetchCategoryMaster(options?: {
       categorySheetName;
     const resolvedSummary =
       findSheetTitle(titles, summarySheetName, ["フォーマット", "経費集計"]) ??
+      findSheetTitle(titles, "経費集計", ["経費集計"]) ??
       summarySheetName;
 
-    const [categoryResponse, summaryResponse] = await Promise.all([
-      sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `'${resolvedCategory}'!A1:Z200`,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `'${resolvedSummary}'!1:8`,
-      }),
-    ]);
-    let categories = parseNamedSheet(
-      (categoryResponse.data.values ?? []) as string[][],
-    );
+    const readSheet = async (title: string, range: string) => {
+      try {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `'${title}'!${range}`,
+        });
+        return {
+          values: (response.data.values ?? []) as string[][],
+          error: null,
+        };
+      } catch (error) {
+        return { values: [] as string[][], error };
+      }
+    };
 
-    const summaryRows = ((summaryResponse.data.values ?? []) as string[][]).map(
-      (row) => row.map((cell) => cell ?? ""),
+    const [categorySheet, summarySheet] = await Promise.all([
+      readSheet(resolvedCategory, "A1:Z200"),
+      readSheet(resolvedSummary, "1:8"),
+    ]);
+    if (categorySheet.error && summarySheet.error) {
+      throw categorySheet.error;
+    }
+    let categories = parseNamedSheet(categorySheet.values);
+    if (categories.length === 0) {
+      categories = parseSummaryHeaders(categorySheet.values[0] ?? []);
+    }
+    const summaryRows = summarySheet.values.map((row) =>
+      row.map((cell) => cell ?? ""),
     );
     let sheetColumns: string[] = [];
     try {
@@ -335,7 +348,7 @@ export async function fetchCategoryMaster(options?: {
         });
       }
 
-      const preview = ((categoryResponse.data.values?.[0] ?? []) as string[])
+      const preview = (categorySheet.values[0] ?? [])
         .filter(Boolean)
         .join(" / ");
       return {
