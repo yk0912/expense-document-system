@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { ModeSelectScreen } from "@/components/home/ModeSelectScreen";
 
 export default function Home() {
-  redirect("/receipts/new");
+  return <ModeSelectScreen />;
 }

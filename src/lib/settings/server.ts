@@ -30,6 +30,9 @@ async function envSettings(): Promise<AppSettings> {
     usersSpreadsheetId: spreadsheetId,
     usersSheetName: DEFAULT_USERS_SHEET_NAME,
     geminiModel: resolveGeminiModel(env.geminiModel),
+    attendanceSpreadsheetId: "",
+    attendanceSpreadsheetUrl: "",
+    attendanceSheetName: "",
   };
 }
 
@@ -58,6 +61,19 @@ function pickFilled(
       parseSpreadsheetId(overlay.usersSpreadsheetId ?? "") || base.usersSpreadsheetId,
     usersSheetName: overlay.usersSheetName?.trim() || base.usersSheetName,
     geminiModel: overlay.geminiModel?.trim() || base.geminiModel,
+    attendanceSpreadsheetId:
+      parseSpreadsheetId(overlay.attendanceSpreadsheetId ?? "") ||
+      parseSpreadsheetId(overlay.attendanceSpreadsheetUrl ?? "") ||
+      base.attendanceSpreadsheetId,
+    attendanceSpreadsheetUrl:
+      overlay.attendanceSpreadsheetUrl?.trim() ||
+      spreadsheetUrlFromId(
+        parseSpreadsheetId(overlay.attendanceSpreadsheetId ?? "") ||
+          base.attendanceSpreadsheetId,
+      ) ||
+      base.attendanceSpreadsheetUrl,
+    attendanceSheetName:
+      overlay.attendanceSheetName?.trim() || base.attendanceSheetName,
   };
 }
 
@@ -154,6 +170,13 @@ export async function saveAppSettings(next: AppSettings): Promise<AppSettings> {
       parseSpreadsheetId(next.usersSpreadsheetId) || spreadsheetId,
     usersSheetName: next.usersSheetName.trim() || DEFAULT_USERS_SHEET_NAME,
     geminiModel: resolveGeminiModel(next.geminiModel),
+    attendanceSpreadsheetId: parseSpreadsheetId(
+      next.attendanceSpreadsheetId || next.attendanceSpreadsheetUrl,
+    ),
+    attendanceSpreadsheetUrl:
+      next.attendanceSpreadsheetUrl.trim() ||
+      spreadsheetUrlFromId(parseSpreadsheetId(next.attendanceSpreadsheetId)),
+    attendanceSheetName: next.attendanceSheetName.trim(),
   };
   await writeJsonFile(auth, normalized.driveFolderId, SETTINGS_FILE_NAME, normalized);
   settingsCache.set(normalized.driveFolderId, normalized);

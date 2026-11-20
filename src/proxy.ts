@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/receipts/files/")
   ) {
     if (pathname === "/login" && session) {
-      const next = request.nextUrl.searchParams.get("next") || "/receipts/new";
+      const next = request.nextUrl.searchParams.get("next") || "/";
       return NextResponse.redirect(new URL(next, request.url));
     }
     return NextResponse.next();

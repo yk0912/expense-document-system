@@ -11,9 +11,10 @@ import { formatBytes, type CompressedReceiptImage } from "@/lib/images/compress"
 
 type ReceiptPreviewProps = {
   image: CompressedReceiptImage;
+  alt?: string;
 };
 
-export function ReceiptPreview({ image }: ReceiptPreviewProps) {
+export function ReceiptPreview({ image, alt = "選択したレシート" }: ReceiptPreviewProps) {
   return (
     <Card>
       <CardHeader>
@@ -28,7 +29,7 @@ export function ReceiptPreview({ image }: ReceiptPreviewProps) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image.previewUrl}
-          alt="選択したレシート"
+          alt={alt}
           className="mx-auto max-h-[55vh] w-full rounded-lg object-contain bg-muted"
         />
         {image.warning ? (

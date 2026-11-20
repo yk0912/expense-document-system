@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { AttendanceDraftProvider, useAttendanceDraft } from "@/components/attendance/AttendanceDraftProvider";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { DeployedAtLabel } from "@/components/nav/DeployedAtLabel";
 import { ReceiptDraftProvider, useReceiptDraft } from "@/components/receipts/ReceiptDraftProvider";
@@ -38,9 +39,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SettingsProvider>
       <ReceiptDraftProvider>
-        <AppFrame session={session} onLogout={handleLogout}>
-          {children}
-        </AppFrame>
+        <AttendanceDraftProvider>
+          <AppFrame session={session} onLogout={handleLogout}>
+            {children}
+          </AppFrame>
+        </AttendanceDraftProvider>
       </ReceiptDraftProvider>
     </SettingsProvider>
   );
@@ -56,6 +59,7 @@ function AppFrame({
   onLogout: () => Promise<void>;
 }) {
   const { clearDraft } = useReceiptDraft();
+  const { clearDraft: clearAttendanceDraft } = useAttendanceDraft();
 
   return (
     <>
@@ -71,6 +75,7 @@ function AppFrame({
               className="shrink-0 text-primary"
               onClick={() => {
                 clearDraft();
+                clearAttendanceDraft();
                 void onLogout();
               }}
             >

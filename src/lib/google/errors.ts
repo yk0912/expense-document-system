@@ -18,7 +18,7 @@ export function toGoogleErrorMessage(error: unknown, fallback: string): string {
     raw.toLowerCase().includes("office file") ||
     raw.toLowerCase().includes("not supported for this document")
   ) {
-    return "指定したファイルは Excel のままです。Google スプレッドシートのIDを使ってください。";
+    return "このファイルは Excel のままです。設定で保存すると、Googleスプレッドシートに変換したコピーを転記先にします。";
   }
   if (raw.includes("Requested entity was not found") || raw.includes("File not found")) {
     return "Google Driveの保存先フォルダにアクセスできません。フォルダIDを確認するか、OAuthスコープに https://www.googleapis.com/auth/drive を追加してtokenを取り直してください。";

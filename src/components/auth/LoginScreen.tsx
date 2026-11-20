@@ -56,7 +56,7 @@ export function LoginScreen() {
       if (!response.ok) {
         throw new Error(payload.error ?? "ログインに失敗しました。");
       }
-      router.replace(searchParams.get("next") || "/receipts/new");
+      router.replace(searchParams.get("next") || "/");
       router.refresh();
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "ログインに失敗しました。");

@@ -1,8 +1,11 @@
 export function parseSpreadsheetId(input: string): string {
   const trimmed = input.trim();
-  const fromUrl = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  const fromUrl = trimmed.match(/(?:\/d\/|[?&]id=)([a-zA-Z0-9-_]+)/);
   if (fromUrl?.[1]) {
     return fromUrl[1];
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return "";
   }
   return trimmed;
 }

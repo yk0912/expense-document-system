@@ -43,8 +43,7 @@ function scaledSize(width: number, height: number, edge: number) {
   };
 }
 
-async function drawFileToCanvas(file: File): Promise<HTMLCanvasElement> {
-  const edge = maxEdge();
+async function drawFileToCanvas(file: File, edge = maxEdge()): Promise<HTMLCanvasElement> {
 
   if (typeof createImageBitmap === "function") {
     const original = await createImageBitmap(file);
@@ -103,11 +102,12 @@ async function drawFileToCanvas(file: File): Promise<HTMLCanvasElement> {
 
 export async function compressReceiptImage(
   file: File,
+  options?: { maxEdge?: number },
 ): Promise<CompressedReceiptImage> {
   const originalBytes = file.size;
 
   try {
-    const canvas = await drawFileToCanvas(file);
+    const canvas = await drawFileToCanvas(file, options?.maxEdge);
     const width = canvas.width;
     const height = canvas.height;
     const blob = await canvasToBlob(canvas, 0.72);

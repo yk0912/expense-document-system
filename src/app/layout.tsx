@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "レシまる",
-  description: "レシートを撮影して経費を登録します",
+  description: "レシートと勤怠表を読み取ってスプレッドシートへ転記します",
   applicationName: "レシまる",
 };
 

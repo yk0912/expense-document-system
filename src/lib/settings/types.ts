@@ -15,6 +15,9 @@ export type AppSettings = {
   usersSpreadsheetId: string;
   usersSheetName: string;
   geminiModel: string;
+  attendanceSpreadsheetId: string;
+  attendanceSpreadsheetUrl: string;
+  attendanceSheetName: string;
 };
 
 export const EMPTY_SETTINGS: AppSettings = {
@@ -27,4 +30,7 @@ export const EMPTY_SETTINGS: AppSettings = {
   usersSpreadsheetId: "",
   usersSheetName: DEFAULT_USERS_SHEET_NAME,
   geminiModel: DEFAULT_GEMINI_MODEL,
+  attendanceSpreadsheetId: "",
+  attendanceSpreadsheetUrl: "",
+  attendanceSheetName: "",
 };
