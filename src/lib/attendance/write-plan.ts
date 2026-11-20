@@ -46,6 +46,15 @@ function valuesDiffer(existing: number | null, next: number | null): boolean {
   return Math.abs(existing - next) > 0.001;
 }
 
+function sameYearMonth(header: DateHeader | null, year: number, month: number): boolean {
+  return (
+    header != null &&
+    header.day === 1 &&
+    header.month === month &&
+    (header.year == null || header.year === year)
+  );
+}
+
 function invalidNumber(value: number | null, label: string): string | null {
   if (value == null) {
     return null;
@@ -81,6 +90,7 @@ export function planAttendanceWrites(input: {
       writtenDays: 0,
       clearedDays: 0,
       overwriteDayCount: 0,
+      resetsWriteArea: false,
       error,
       headerWarning: null,
     });
@@ -111,10 +121,7 @@ export function planAttendanceWrites(input: {
 
     const monthDays = daysInMonth(sheet.year, sheet.month);
     const seen = new Set<number>();
-    const localUpdates: CellUpdate[] = [];
-    let writtenDays = 0;
-    let clearedDays = 0;
-    let sheetOverwrites = 0;
+    const byDay = new Map<number, AttendanceWriteSheet["days"][number]>();
 
     for (const day of sheet.days) {
       if (!Number.isInteger(day.day) || day.day < 1 || day.day > monthDays) {
@@ -133,9 +140,26 @@ export function planAttendanceWrites(input: {
       if (day.transportYen != null && (!Number.isFinite(day.transportYen) || day.transportYen < 0)) {
         return fail(`${day.day}日の交通費を確認してください。`, found.rowNumber);
       }
+      byDay.set(day.day, day);
+    }
 
-      const columnIndex = dayColumnIndex(day.day);
-      const nextValues = desiredValues(day);
+    if (byDay.size === 0) {
+      return fail("転記する日がありません。", found.rowNumber);
+    }
+
+    const resetsWriteArea = sameYearMonth(input.header, sheet.year, sheet.month);
+    const dayNumbers = resetsWriteArea
+      ? Array.from({ length: monthDays }, (_, index) => index + 1)
+      : [...byDay.keys()];
+    const localUpdates: CellUpdate[] = [];
+    let writtenDays = 0;
+    let clearedDays = 0;
+    let sheetOverwrites = 0;
+
+    for (const dayNumber of dayNumbers) {
+      const day = byDay.get(dayNumber);
+      const columnIndex = dayColumnIndex(dayNumber);
+      const nextValues = day ? desiredValues(day) : [null, null, null];
       const existingValues = [0, 1, 2].map((offset) => {
         const key = existingCellKey(found.rowNumber + offset, columnIndex);
         return input.existing.has(key) ? (input.existing.get(key) ?? null) : null;
@@ -146,9 +170,10 @@ export function planAttendanceWrites(input: {
       if (changed && existingValues.some((value) => value != null)) {
         sheetOverwrites += 1;
       }
+      const replaceRow = resetsWriteArea || input.readAllTargets === true;
       nextValues.forEach((value, offset) => {
         const current = existingValues[offset] ?? null;
-        if (!input.readAllTargets && !valuesDiffer(current, value)) {
+        if (!replaceRow && !valuesDiffer(current, value)) {
           return;
         }
         localUpdates.push({
@@ -157,15 +182,11 @@ export function planAttendanceWrites(input: {
           value: value == null ? "" : value,
         });
       });
-      if (day.cleared) {
-        clearedDays += 1;
-      } else {
+      if (nextValues.some((value) => value != null)) {
         writtenDays += 1;
+      } else if (day?.cleared || existingValues.some((value) => value != null)) {
+        clearedDays += 1;
       }
-    }
-
-    if (writtenDays + clearedDays === 0) {
-      return fail("転記する日がありません。", found.rowNumber);
     }
 
     updates.push(...localUpdates);
@@ -181,6 +202,7 @@ export function planAttendanceWrites(input: {
       writtenDays,
       clearedDays,
       overwriteDayCount: sheetOverwrites,
+      resetsWriteArea,
       error: null,
       headerWarning: headerCheck.warning,
     } satisfies AttendanceRegisterResult;

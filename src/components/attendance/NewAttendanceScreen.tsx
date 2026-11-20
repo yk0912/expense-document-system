@@ -48,6 +48,7 @@ export function NewAttendanceScreen() {
   const [confirming, setConfirming] = useState<{
     fingerprint: string;
     overwriteDayCount: number;
+    resetsWriteArea: boolean;
     warnings: string[];
   } | null>(null);
 
@@ -190,6 +191,7 @@ export function NewAttendanceScreen() {
           setConfirming({
             fingerprint,
             overwriteDayCount: preview.overwriteDayCount,
+            resetsWriteArea: preview.results.some((result) => result.ok && result.resetsWriteArea),
             warnings: [
               ...new Set(
                 preview.results
@@ -358,8 +360,17 @@ export function NewAttendanceScreen() {
           ))}
           {confirming ? (
             <div className="space-y-2 rounded-lg border border-border p-4 text-sm leading-6">
+              {confirming.resetsWriteArea ? (
+                <p>
+                  同年同月のため、対象の人の勤務時間・早朝時間・交通費の3行を空にしてから書き込みます。
+                </p>
+              ) : null}
               {confirming.overwriteDayCount > 0 ? (
-                <p>{confirming.overwriteDayCount}日分はすでに数字があるため上書きします。</p>
+                <p>
+                  {confirming.resetsWriteArea
+                    ? `${confirming.overwriteDayCount}日分はすでに数字があるため、空にしたあとに書き込みます。`
+                    : `${confirming.overwriteDayCount}日分はすでに数字があるため上書きします。`}
+                </p>
               ) : null}
               {confirming.warnings.map((warning) => (
                 <p key={warning}>{warning}</p>

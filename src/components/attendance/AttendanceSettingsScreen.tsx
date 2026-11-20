@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useAppSettings } from "@/components/settings/SettingsProvider";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export function AttendanceSettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadedSavedId, setLoadedSavedId] = useState("");
   const idValue = idInput ?? settings.attendanceSpreadsheetId;
   const parsedId = parseSpreadsheetId(idValue);
   const sheetsReady = titlesForId === parsedId && titles.length > 0;
@@ -68,14 +69,11 @@ export function AttendanceSettingsScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!settings.attendanceSpreadsheetId) {
-      return;
-    }
-    void loadSheets(settings.attendanceSpreadsheetId);
-    // 保存済みIDのシート一覧は画面を開いたときだけ読む。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.attendanceSpreadsheetId]);
+  const savedSpreadsheetId = settings.attendanceSpreadsheetId;
+  if (savedSpreadsheetId && savedSpreadsheetId !== loadedSavedId) {
+    setLoadedSavedId(savedSpreadsheetId);
+    void loadSheets(savedSpreadsheetId);
+  }
 
   const handleSave = async () => {
     if (!parsedId || !selectedSheet) {
@@ -107,7 +105,7 @@ export function AttendanceSettingsScreen() {
       setSheetName(selectedSheet);
       setExcelFile(false);
       setSavedMessage(
-        payload.converted
+        converted
           ? "ExcelをGoogleスプレッドシートに変換し、そのコピーを転記先として保存しました。"
           : "保存しました。",
       );

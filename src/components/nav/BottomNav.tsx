@@ -61,7 +61,7 @@ export function BottomNav() {
       <ul
         className={cn(
           "mx-auto grid h-16 max-w-lg",
-          tabs.length === 2 ? "grid-cols-2" : tabs.length === 1 ? "grid-cols-1" : "grid-cols-4",
+          tabs.length === 2 ? "grid-cols-2" : "grid-cols-4",
         )}
       >
         {tabs.map((tab) => {

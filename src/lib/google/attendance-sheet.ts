@@ -117,7 +117,7 @@ export function ensureGoogleSpreadsheet(
   return pending;
 }
 
-export async function useGoogleAttendanceSpreadsheet<T>(
+export async function openGoogleAttendanceSpreadsheet<T>(
   auth: SheetsAuth,
   spreadsheetId: string,
   run: (spreadsheetId: string) => Promise<T>,
