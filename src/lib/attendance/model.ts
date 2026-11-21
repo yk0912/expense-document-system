@@ -12,6 +12,7 @@ export type ParsedAttendanceDay = {
   breakEnd: string | null;
   actualHours: number | null;
   transportYen: number | null;
+  transportSameAsAbove?: boolean;
   note: string | null;
   supervisorSigned: boolean | null;
   overtimeApproved: boolean | null;
@@ -77,6 +78,50 @@ export function actualHoursNeedReview(day: AttendanceDay): boolean {
   return calculated != null && Math.abs(day.actualHours - calculated) > 0.01;
 }
 
+export function dayNeedsReview(day: AttendanceDay): boolean {
+  if (day.cleared) {
+    return false;
+  }
+  return (
+    day.workStart == null ||
+    day.workEnd == null ||
+    day.actualHours == null ||
+    actualHoursNeedReview(day)
+  );
+}
+
+export function dayReviewNotices(day: AttendanceDay, month: number | null): string[] {
+  if (!dayNeedsReview(day)) {
+    return [];
+  }
+  const label = `${month ?? ""}月${day.day}日`;
+  const notices: string[] = [];
+  if (day.workStart == null) {
+    notices.push(`${label}の勤務開始時間を要確認`);
+  }
+  if (day.workEnd == null) {
+    notices.push(`${label}の勤務終了時間を要確認`);
+  }
+  if (day.actualHours == null || actualHoursNeedReview(day)) {
+    notices.push(`${label}の実働勤務時間を要確認`);
+  }
+  return notices;
+}
+
+export function applyRepeatedTransport<T extends ParsedAttendanceDay>(days: T[]): T[] {
+  const ordered = [...days].sort((left, right) => left.day - right.day);
+  let lastTransport: number | null = null;
+  return ordered.map((day) => {
+    if (day.transportSameAsAbove) {
+      return { ...day, transportYen: lastTransport };
+    }
+    if (day.transportYen != null) {
+      lastTransport = day.transportYen;
+    }
+    return day;
+  });
+}
+
 export function refreshDayWarnings(day: AttendanceDay): AttendanceDay {
   const calculated = actualHoursBetween(
     day.workStart,
@@ -85,7 +130,19 @@ export function refreshDayWarnings(day: AttendanceDay): AttendanceDay {
     day.breakEnd,
   );
   const warnings: string[] = [];
-  if (actualHoursNeedReview(day)) {
+  if (!day.cleared && day.workStart == null) {
+    warnings.push("勤務開始時間が読み取れません。");
+  }
+  if (!day.cleared && day.workEnd == null) {
+    warnings.push("勤務終了時間が読み取れません。");
+  }
+  if (!day.cleared && day.actualHours == null) {
+    warnings.push(
+      calculated == null
+        ? "実働時間が読み取れません。"
+        : `実働時間が読み取れません。時刻から計算すると${formatHours(calculated)}時間です。`,
+    );
+  } else if (actualHoursNeedReview(day)) {
     warnings.push(
       `用紙の実働は${formatHours(day.actualHours ?? 0)}時間、時刻から計算すると${formatHours(calculated ?? 0)}時間です。`,
     );
@@ -117,7 +174,7 @@ export function buildAttendanceDay(input: ParsedAttendanceDay): AttendanceDay | 
     workEnd,
     breakStart,
     breakEnd,
-    actualHours: handwritten ?? calculated,
+    actualHours: handwritten,
     earlyHours: earlyHoursBetween(workStart, workEnd, breakStart, breakEnd),
     transportYen: roundYen(input.transportYen),
     note: input.note?.trim() || null,
@@ -132,7 +189,7 @@ export function buildAttendanceDay(input: ParsedAttendanceDay): AttendanceDay | 
 export function toReviewSheets(sheets: ParsedAttendanceSheet[]): ReviewAttendance[] {
   return sheets.map((sheet, index) => {
     const byDay = new Map<number, AttendanceDay>();
-    for (const day of sheet.days) {
+    for (const day of applyRepeatedTransport(sheet.days)) {
       const built = buildAttendanceDay(day);
       if (built && !byDay.has(built.day)) {
         byDay.set(built.day, built);

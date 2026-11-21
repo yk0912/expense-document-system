@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  actualHoursNeedReview,
+  dayNeedsReview,
+  dayReviewNotices,
   attendanceTotals,
   emptyAttendanceDay,
   monthLength,
@@ -140,7 +141,7 @@ function DayEditor({
   onChange: (next: AttendanceDay) => void;
 }) {
   const label = `${month ?? ""}月${day.day}日`;
-  const needsReview = actualHoursNeedReview(day);
+  const needsReview = dayNeedsReview(day);
   const changeTime = (patch: Partial<AttendanceDay>) => {
     onChange(updateAttendanceDay(day, patch, true));
   };
@@ -281,7 +282,7 @@ export function AttendanceReviewCard({
   onRemove,
 }: AttendanceReviewCardProps) {
   const totals = attendanceTotals(sheet.days, sheet.year, sheet.month);
-  const hoursToReview = sheet.days.filter(actualHoursNeedReview);
+  const reviewNotices = sheet.days.flatMap((day) => dayReviewNotices(day, sheet.month));
   const usedDays = new Set(sheet.days.map((day) => day.day));
   const openDays = Array.from({ length: monthLength(sheet) }, (_, index) => index + 1).filter(
     (day) => !usedDays.has(day),
@@ -374,13 +375,11 @@ export function AttendanceReviewCard({
         <p className="col-span-2">
           交通費合計 {totals.transportYen.toLocaleString("ja-JP")}円
         </p>
-        {[...hoursToReview]
-          .sort((left, right) => left.day - right.day)
-          .map((day) => (
-            <p key={day.day} className="col-span-2 font-medium text-destructive">
-              {sheet.month ?? ""}月{day.day}日の実働勤務時間を要確認
-            </p>
-          ))}
+        {reviewNotices.map((notice) => (
+          <p key={notice} className="col-span-2 font-medium text-destructive">
+            {notice}
+          </p>
+        ))}
       </div>
 
       {sheet.warnings.map((warning) => (

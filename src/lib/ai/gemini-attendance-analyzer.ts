@@ -26,7 +26,9 @@ const PROMPT = `あなたは日本の勤務実績報告書を読み取るシス�
 - breakStart / breakEnd: 休憩時間帯。空欄なら null。
 - actualHours: 用紙に書かれた実働時間(h)。4時間半なら 4.5。書かれていなければ null。自分で計算しない。
 - transportYen: 備考欄の交通費。280円なら 280。無ければ null。
+- transportSameAsAbove: 交通費欄が「〃」、斜線2本のちょんちょん、または「以下同文」なら true。その場合 transportYen は null。金額が書いてある日は false。
 - note: 交通費以外の備考。無ければ null。
+- 数字に取り消し線が2本引いてあり、そのそばに書き直した数字があるときは、消された数字は使わない。開始・終了・休憩・実働・交通費とも、そばの代替数字を採用する。代替数字が無い取り消しは null。
 - supervisorSigned: 責任者サインがあれば true、空欄なら false、判別できなければ null。
 - overtimeApproved: 残業承認があれば true、空欄なら false、判別できなければ null。
 

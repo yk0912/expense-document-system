@@ -345,6 +345,9 @@ export function NewAttendanceScreen() {
                     {result.clearedDays > 0 ? `、${result.clearedDays}日分を空欄` : ""}
                   </p>
                 ) : null}
+                {result.ok && result.nameInserted ? (
+                  <p>一覧に無かったため、{result.rowNumber}行目のC列に氏名を記入しました。</p>
+                ) : null}
                 {totals ? (
                   <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted px-3 py-2">
                     <p>総勤務日数 {totals.workDayCount}日</p>

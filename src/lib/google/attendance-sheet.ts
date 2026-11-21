@@ -630,15 +630,20 @@ export async function registerAttendanceSheets(
       planned.results.some((result) => result.ok && result.sheetIndex === sheet.sheetIndex),
     );
     if (writtenSheets.length > 0) {
-      if (planned.updates.length > 0) {
-        await writeCells(sheets, spreadsheetId, quoted, planned.updates);
+      const cellUpdates = [...planned.nameUpdates, ...planned.updates];
+      if (cellUpdates.length > 0) {
+        await writeCells(sheets, spreadsheetId, quoted, cellUpdates);
       }
+      const insertedNames = planned.nameUpdates.map((update) => ({
+        rowNumber: update.rowNumber,
+        name: String(update.value),
+      }));
       await writeWeekendHolidayHours(
         sheets,
         spreadsheetId,
         quoted,
         title,
-        names,
+        [...names, ...insertedNames],
         headerRow,
         writtenSheets,
       );

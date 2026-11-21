@@ -1,5 +1,11 @@
 import { payableTransportYen } from "@/lib/attendance/model";
-import { findPersonRow, type NameCell } from "@/lib/attendance/names";
+import {
+  ATTENDANCE_NAME_COLUMN_INDEX,
+  cleanEmployeeName,
+  findPersonRow,
+  nextBlankPersonRow,
+  type NameCell,
+} from "@/lib/attendance/names";
 import {
   dayColumnIndex,
   daysInMonth,
@@ -75,10 +81,13 @@ export function planAttendanceWrites(input: {
 }): {
   results: AttendanceRegisterResult[];
   updates: CellUpdate[];
+  nameUpdates: CellUpdate[];
   overwriteDayCount: number;
   needsConfirm: boolean;
 } {
   const updates: CellUpdate[] = [];
+  const nameUpdates: CellUpdate[] = [];
+  const roster: NameCell[] = [...input.names];
   let overwriteDayCount = 0;
   let needsConfirm = false;
 
@@ -92,6 +101,7 @@ export function planAttendanceWrites(input: {
       clearedDays: 0,
       overwriteDayCount: 0,
       resetsWriteArea: false,
+      nameInserted: false,
       error,
       headerWarning: null,
     });
@@ -115,8 +125,20 @@ export function planAttendanceWrites(input: {
       return fail(headerCheck.error);
     }
 
-    const found = findPersonRow(input.names, sheet.employeeName);
-    if (!found.ok) {
+    const employeeName = cleanEmployeeName(sheet.employeeName);
+    const found = findPersonRow(roster, employeeName);
+    let rowNumber: number;
+    let nameInserted = false;
+    if (found.ok) {
+      rowNumber = found.rowNumber;
+    } else if (found.reason === "missing") {
+      const blankRow = nextBlankPersonRow(roster);
+      if (blankRow == null) {
+        return fail("氏名を記入できる空欄がC列にありません。");
+      }
+      rowNumber = blankRow;
+      nameInserted = true;
+    } else {
       return fail(found.error);
     }
 
@@ -126,26 +148,35 @@ export function planAttendanceWrites(input: {
 
     for (const day of sheet.days) {
       if (!Number.isInteger(day.day) || day.day < 1 || day.day > monthDays) {
-        return fail(`${sheet.month}月に${day.day}日はありません。`, found.rowNumber);
+        return fail(`${sheet.month}月に${day.day}日はありません。`, rowNumber);
       }
       if (seen.has(day.day)) {
-        return fail(`${day.day}日が重複しています。`, found.rowNumber);
+        return fail(`${day.day}日が重複しています。`, rowNumber);
       }
       seen.add(day.day);
       const hoursError =
         invalidNumber(day.actualHours, `${day.day}日の実働時間`) ??
         invalidNumber(day.earlyHours, `${day.day}日の早朝深夜時間`);
       if (hoursError) {
-        return fail(hoursError, found.rowNumber);
+        return fail(hoursError, rowNumber);
       }
       if (day.transportYen != null && (!Number.isFinite(day.transportYen) || day.transportYen < 0)) {
-        return fail(`${day.day}日の交通費を確認してください。`, found.rowNumber);
+        return fail(`${day.day}日の交通費を確認してください。`, rowNumber);
       }
       byDay.set(day.day, day);
     }
 
     if (byDay.size === 0) {
-      return fail("転記する日がありません。", found.rowNumber);
+      return fail("転記する日がありません。", rowNumber);
+    }
+
+    if (nameInserted) {
+      roster.push({ rowNumber, name: employeeName });
+      nameUpdates.push({
+        rowNumber,
+        columnIndex: ATTENDANCE_NAME_COLUMN_INDEX,
+        value: employeeName,
+      });
     }
 
     const resetsWriteArea = sameYearMonth(input.header, sheet.year, sheet.month);
@@ -162,7 +193,7 @@ export function planAttendanceWrites(input: {
       const columnIndex = dayColumnIndex(dayNumber);
       const nextValues = day ? desiredValues(day) : [null, null, null];
       const existingValues = [0, 1, 2].map((offset) => {
-        const key = existingCellKey(found.rowNumber + offset, columnIndex);
+        const key = existingCellKey(rowNumber + offset, columnIndex);
         return input.existing.has(key) ? (input.existing.get(key) ?? null) : null;
       });
       const changed = nextValues.some((value, index) =>
@@ -178,7 +209,7 @@ export function planAttendanceWrites(input: {
           return;
         }
         localUpdates.push({
-          rowNumber: found.rowNumber + offset,
+          rowNumber: rowNumber + offset,
           columnIndex,
           value: value == null ? "" : value,
         });
@@ -199,11 +230,12 @@ export function planAttendanceWrites(input: {
       sheetIndex: sheet.sheetIndex,
       employeeName: sheet.employeeName,
       ok: true,
-      rowNumber: found.rowNumber,
+      rowNumber,
       writtenDays,
       clearedDays,
       overwriteDayCount: sheetOverwrites,
       resetsWriteArea,
+      nameInserted,
       error: null,
       headerWarning: headerCheck.warning,
     } satisfies AttendanceRegisterResult;
@@ -216,6 +248,7 @@ export function planAttendanceWrites(input: {
   return {
     results,
     updates,
+    nameUpdates,
     overwriteDayCount,
     needsConfirm: needsConfirm && results.some((result) => result.ok),
   };

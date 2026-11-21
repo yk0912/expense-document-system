@@ -8,6 +8,7 @@ export const geminiAttendanceDaySchema = z.object({
   breakEnd: z.string().nullable(),
   actualHours: z.number().nullable(),
   transportYen: z.number().nullable(),
+  transportSameAsAbove: z.boolean(),
   note: z.string().nullable(),
   supervisorSigned: z.boolean().nullable(),
   overtimeApproved: z.boolean().nullable(),
@@ -87,6 +88,17 @@ function nullableBoolean(value: unknown): boolean | null {
   return null;
 }
 
+function isTransportDitto(value: string): boolean {
+  const text = value.normalize("NFKC").replace(/[\s\u3000]/g, "");
+  if (!text) {
+    return false;
+  }
+  if (["〃", "同上", "以下同文", "//", "／／", "\\\\", "＼＼", "〻"].includes(text)) {
+    return true;
+  }
+  return /^[/／\\＼]{2}$/.test(text);
+}
+
 function nullableString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -114,6 +126,12 @@ export function sanitizeAttendanceAnalysis(value: unknown): unknown {
           : [],
         days: days.map((day) => {
           const item = day && typeof day === "object" ? (day as Record<string, unknown>) : {};
+          const note = nullableString(item.note);
+          const dittoNote = note != null && isTransportDitto(note);
+          const transportRaw = item.transportYen;
+          const dittoTransport = typeof transportRaw === "string" && isTransportDitto(transportRaw);
+          const transportSameAsAbove =
+            item.transportSameAsAbove === true || dittoTransport || dittoNote;
           return {
             day: nullableNumber(item.day) ?? 0,
             workStart: nullableString(item.workStart),
@@ -121,8 +139,9 @@ export function sanitizeAttendanceAnalysis(value: unknown): unknown {
             breakStart: nullableString(item.breakStart),
             breakEnd: nullableString(item.breakEnd),
             actualHours: nullableNumber(item.actualHours),
-            transportYen: nullableNumber(item.transportYen),
-            note: nullableString(item.note),
+            transportYen: dittoTransport ? null : nullableNumber(transportRaw),
+            transportSameAsAbove,
+            note: dittoNote ? null : note,
             supervisorSigned: nullableBoolean(item.supervisorSigned),
             overtimeApproved: nullableBoolean(item.overtimeApproved),
           };

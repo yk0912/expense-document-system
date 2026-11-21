@@ -47,6 +47,7 @@ export type AttendanceRegisterResult = {
   clearedDays: number;
   overwriteDayCount: number;
   resetsWriteArea: boolean;
+  nameInserted: boolean;
   error: string | null;
   headerWarning: string | null;
 };
