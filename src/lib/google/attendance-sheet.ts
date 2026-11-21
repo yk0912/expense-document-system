@@ -13,8 +13,13 @@ import { toGoogleErrorMessage } from "@/lib/google/errors";
 import {
   ATTENDANCE_DAY1_COLUMN_INDEX,
   findDateHeader,
+  type DateHeader,
 } from "@/lib/attendance/sheet-header";
-import type { NameCell } from "@/lib/attendance/names";
+import { workHourRows, type NameCell } from "@/lib/attendance/names";
+import {
+  WEEKEND_HOLIDAY_HOURS_CELL,
+  weekendHolidayWorkHoursFormula,
+} from "@/lib/attendance/weekend-hours";
 import { spreadsheetUrlFromId } from "@/lib/settings/parse";
 import type {
   AttendanceDirectory,
@@ -481,6 +486,62 @@ async function writeCells(
   }
 }
 
+function formulaPeriod(
+  header: DateHeader | null,
+  written: AttendanceWriteSheet[],
+): { year: number; month: number } | null {
+  const years = [
+    ...new Set(
+      written.flatMap((sheet) => (sheet.year == null ? [] : [sheet.year])),
+    ),
+  ];
+  const months = [
+    ...new Set(
+      written.flatMap((sheet) => (sheet.month == null ? [] : [sheet.month])),
+    ),
+  ];
+  const year = header?.year ?? (years.length === 1 ? years[0] : null);
+  const month = header?.month ?? (months.length === 1 ? months[0] : null);
+  if (year == null || month == null) {
+    return null;
+  }
+  if (header?.month != null && months.length === 1 && header.month !== months[0]) {
+    return null;
+  }
+  if (header?.year != null && years.length === 1 && header.year !== years[0]) {
+    return null;
+  }
+  return { year, month };
+}
+
+async function writeWeekendHolidayHours(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  quoted: string,
+  names: NameCell[],
+  header: DateHeader | null,
+  written: AttendanceWriteSheet[],
+) {
+  const period = formulaPeriod(header, written);
+  if (!period) {
+    return;
+  }
+  const formula = weekendHolidayWorkHoursFormula(
+    workHourRows(names),
+    period.year,
+    period.month,
+  );
+  if (!formula) {
+    return;
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${quoted}!${WEEKEND_HOLIDAY_HOURS_CELL}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[formula]] },
+  });
+}
+
 export async function registerAttendanceSheets(
   auth: SheetsAuth,
   spreadsheetId: string,
@@ -527,8 +588,14 @@ export async function registerAttendanceSheets(
         results: planned.results,
       };
     }
-    if (planned.updates.length > 0 && planned.results.some((result) => result.ok)) {
-      await writeCells(sheets, spreadsheetId, quoted, planned.updates);
+    const writtenSheets = sheetsToWrite.filter((sheet) =>
+      planned.results.some((result) => result.ok && result.sheetIndex === sheet.sheetIndex),
+    );
+    if (writtenSheets.length > 0) {
+      if (planned.updates.length > 0) {
+        await writeCells(sheets, spreadsheetId, quoted, planned.updates);
+      }
+      await writeWeekendHolidayHours(sheets, spreadsheetId, quoted, names, header, writtenSheets);
     }
     return {
       needsConfirm: false,

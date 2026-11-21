@@ -1,4 +1,5 @@
 import { actualHoursBetween, earlyHoursBetween, formatHours, parseClock } from "@/lib/attendance/hours";
+import { weekendAndHolidayDays } from "@/lib/attendance/holidays";
 import { cleanEmployeeName } from "@/lib/attendance/names";
 import { daysInMonth } from "@/lib/attendance/sheet-header";
 import type { AttendanceDay, AttendanceWriteSheet, ReviewAttendance } from "@/types/attendance";
@@ -144,12 +145,24 @@ export function updateAttendanceDay(
   return refreshDayWarnings(next);
 }
 
-export function attendanceTotals(days: AttendanceDay[]): {
+export function attendanceTotals(
+  days: AttendanceDay[],
+  year: number | null = null,
+  month: number | null = null,
+): {
   workDayCount: number;
   totalHours: number;
+  transportYen: number;
+  weekendHolidayHours: number | null;
 } {
+  const offDays =
+    year != null && month != null && month >= 1 && month <= 12
+      ? new Set(weekendAndHolidayDays(year, month))
+      : null;
   let workDayCount = 0;
   let totalHours = 0;
+  let transportYen = 0;
+  let weekendHolidayHours = 0;
   for (const day of days) {
     if (day.cleared) {
       continue;
@@ -163,8 +176,20 @@ export function attendanceTotals(days: AttendanceDay[]): {
     if (day.actualHours != null) {
       totalHours += day.actualHours;
     }
+    if (offDays?.has(day.day) && day.actualHours != null) {
+      weekendHolidayHours += day.actualHours;
+    }
+    if (day.transportYen != null) {
+      transportYen += day.transportYen;
+    }
   }
-  return { workDayCount, totalHours: Math.round(totalHours * 100) / 100 };
+  return {
+    workDayCount,
+    totalHours: Math.round(totalHours * 100) / 100,
+    transportYen: Math.round(transportYen),
+    weekendHolidayHours:
+      offDays == null ? null : Math.round(weekendHolidayHours * 100) / 100,
+  };
 }
 
 export function dayHasWrite(day: AttendanceDay): boolean {

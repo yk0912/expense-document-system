@@ -56,3 +56,20 @@ export function findPersonRow(
   }
   return { ok: true, rowNumber };
 }
+
+/** 勤務時間の行。氏名は3行ごとに並び、1行目が勤務時間。 */
+export function workHourRows(cells: NameCell[]): number[] {
+  const rows = [...new Set(cells.map((cell) => cell.rowNumber))]
+    .filter((row) => row >= 10)
+    .sort((left, right) => left - right);
+  const result: number[] = [];
+  let nextAllowed = 10;
+  for (const row of rows) {
+    if (row < nextAllowed) {
+      continue;
+    }
+    result.push(row);
+    nextAllowed = row + 3;
+  }
+  return result;
+}

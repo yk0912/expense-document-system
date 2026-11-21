@@ -265,7 +265,7 @@ export function AttendanceReviewCard({
   onChange,
   onRemove,
 }: AttendanceReviewCardProps) {
-  const totals = attendanceTotals(sheet.days);
+  const totals = attendanceTotals(sheet.days, sheet.year, sheet.month);
   const usedDays = new Set(sheet.days.map((day) => day.day));
   const openDays = Array.from({ length: monthLength(sheet) }, (_, index) => index + 1).filter(
     (day) => !usedDays.has(day),
@@ -343,6 +343,15 @@ export function AttendanceReviewCard({
       <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
         <p>総勤務数 {totals.workDayCount}日</p>
         <p>総実働 {formatHours(totals.totalHours)}時間</p>
+        <p className="col-span-2">
+          土日祝の総勤務時間{" "}
+          {totals.weekendHolidayHours == null
+            ? "—"
+            : `${formatHours(totals.weekendHolidayHours)}時間`}
+        </p>
+        <p className="col-span-2">
+          交通費合計 {totals.transportYen.toLocaleString("ja-JP")}円
+        </p>
       </div>
 
       {sheet.warnings.map((warning) => (
