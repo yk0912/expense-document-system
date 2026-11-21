@@ -51,6 +51,32 @@ function roundYen(value: number | null): number | null {
   return Math.max(0, Math.round(value));
 }
 
+export const DAILY_TRANSPORT_LIMIT_YEN = 500;
+
+export function payableTransportYen(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value)) {
+    return null;
+  }
+  const rounded = Math.round(value);
+  if (rounded < 0) {
+    return rounded;
+  }
+  return Math.min(DAILY_TRANSPORT_LIMIT_YEN, rounded);
+}
+
+export function actualHoursNeedReview(day: AttendanceDay): boolean {
+  if (day.cleared || day.actualHours == null) {
+    return false;
+  }
+  const calculated = actualHoursBetween(
+    day.workStart,
+    day.workEnd,
+    day.breakStart,
+    day.breakEnd,
+  );
+  return calculated != null && Math.abs(day.actualHours - calculated) > 0.01;
+}
+
 export function refreshDayWarnings(day: AttendanceDay): AttendanceDay {
   const calculated = actualHoursBetween(
     day.workStart,
@@ -59,13 +85,17 @@ export function refreshDayWarnings(day: AttendanceDay): AttendanceDay {
     day.breakEnd,
   );
   const warnings: string[] = [];
+  if (actualHoursNeedReview(day)) {
+    warnings.push(
+      `用紙の実働は${formatHours(day.actualHours ?? 0)}時間、時刻から計算すると${formatHours(calculated ?? 0)}時間です。`,
+    );
+  }
   if (
-    day.actualHours != null &&
-    calculated != null &&
-    Math.abs(day.actualHours - calculated) > 0.01
+    day.transportYen != null &&
+    Math.round(day.transportYen) > DAILY_TRANSPORT_LIMIT_YEN
   ) {
     warnings.push(
-      `用紙の実働は${formatHours(day.actualHours)}時間、時刻から計算すると${formatHours(calculated)}時間です。`,
+      `交通費は1日${DAILY_TRANSPORT_LIMIT_YEN}円までのため、${Math.round(day.transportYen)}円は${DAILY_TRANSPORT_LIMIT_YEN}円として数えます。`,
     );
   }
   return { ...day, warnings };
@@ -180,7 +210,10 @@ export function attendanceTotals(
       weekendHolidayHours += day.actualHours;
     }
     if (day.transportYen != null) {
-      transportYen += day.transportYen;
+      const payable = payableTransportYen(day.transportYen);
+      if (payable != null && payable >= 0) {
+        transportYen += payable;
+      }
     }
   }
   return {
@@ -255,7 +288,7 @@ export function toWriteSheet(sheet: ReviewAttendance): AttendanceWriteSheet {
       day: day.day,
       actualHours: day.cleared ? null : day.actualHours,
       earlyHours: day.cleared ? null : day.earlyHours,
-      transportYen: day.cleared ? null : day.transportYen,
+      transportYen: day.cleared ? null : payableTransportYen(day.transportYen),
       cleared: day.cleared,
     })),
   };

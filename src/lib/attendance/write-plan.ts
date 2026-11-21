@@ -1,3 +1,4 @@
+import { payableTransportYen } from "@/lib/attendance/model";
 import { findPersonRow, type NameCell } from "@/lib/attendance/names";
 import {
   dayColumnIndex,
@@ -32,7 +33,7 @@ function desiredValues(
   return [
     day.actualHours == null ? null : roundHours(day.actualHours),
     day.earlyHours == null || day.earlyHours <= 0 ? null : roundHours(day.earlyHours),
-    day.transportYen == null ? null : Math.round(day.transportYen),
+    day.transportYen == null ? null : payableTransportYen(day.transportYen),
   ];
 }
 

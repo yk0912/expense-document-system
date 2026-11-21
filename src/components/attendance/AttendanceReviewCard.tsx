@@ -5,12 +5,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  actualHoursNeedReview,
   attendanceTotals,
   emptyAttendanceDay,
   monthLength,
   updateAttendanceDay,
 } from "@/lib/attendance/model";
 import { formatHours } from "@/lib/attendance/hours";
+import { cn } from "@/lib/utils";
 import type { AttendanceDay, ReviewAttendance } from "@/types/attendance";
 
 type AttendanceReviewCardProps = {
@@ -131,6 +133,7 @@ function DayEditor({
   onChange: (next: AttendanceDay) => void;
 }) {
   const label = `${month ?? ""}月${day.day}日`;
+  const needsReview = actualHoursNeedReview(day);
   const changeTime = (patch: Partial<AttendanceDay>) => {
     onChange(updateAttendanceDay(day, patch, true));
   };
@@ -155,7 +158,12 @@ function DayEditor({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border p-3">
+    <div
+      className={cn(
+        "space-y-3 rounded-lg border p-3",
+        needsReview ? "border-destructive bg-destructive/10" : "border-border",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium">{label}</p>
         <Button
@@ -266,6 +274,7 @@ export function AttendanceReviewCard({
   onRemove,
 }: AttendanceReviewCardProps) {
   const totals = attendanceTotals(sheet.days, sheet.year, sheet.month);
+  const hoursToReview = sheet.days.filter(actualHoursNeedReview);
   const usedDays = new Set(sheet.days.map((day) => day.day));
   const openDays = Array.from({ length: monthLength(sheet) }, (_, index) => index + 1).filter(
     (day) => !usedDays.has(day),
@@ -352,6 +361,13 @@ export function AttendanceReviewCard({
         <p className="col-span-2">
           交通費合計 {totals.transportYen.toLocaleString("ja-JP")}円
         </p>
+        {[...hoursToReview]
+          .sort((left, right) => left.day - right.day)
+          .map((day) => (
+            <p key={day.day} className="col-span-2 font-medium text-destructive">
+              {sheet.month ?? ""}月{day.day}日の実働勤務時間を要確認
+            </p>
+          ))}
       </div>
 
       {sheet.warnings.map((warning) => (

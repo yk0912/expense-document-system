@@ -58,22 +58,48 @@ export function parseSheetDateHeader(value: unknown): DateHeader | null {
   return null;
 }
 
-export function findDateHeader(rows: unknown[][]): DateHeader | null {
-  let fallback: DateHeader | null = null;
+function dateSpan(labels: string[]): number {
+  let count = 0;
+  for (const label of labels) {
+    if (!parseSheetDateHeader(label)) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+export function findDateHeaderRow(
+  rows: unknown[][],
+): { header: DateHeader; labels: string[] } | null {
+  let best: { header: DateHeader; labels: string[]; span: number } | null = null;
   for (const row of rows) {
-    const first = parseSheetDateHeader(row?.[0]);
-    if (!first || first.day !== 1) {
+    const labels = (row ?? []).map((cell) => String(cell ?? "").trim());
+    const first = parseSheetDateHeader(labels[0]);
+    const second = parseSheetDateHeader(labels[1]);
+    if (!first || first.day !== 1 || second?.day !== 2) {
       continue;
     }
-    const second = parseSheetDateHeader(row?.[1]);
-    if (second?.day === 2) {
-      return first;
-    }
-    if (second == null) {
-      fallback ??= first;
+    const span = dateSpan(labels);
+    if (!best || span > best.span) {
+      best = { header: first, labels, span };
     }
   }
-  return fallback;
+  if (best) {
+    return { header: best.header, labels: best.labels };
+  }
+  for (const row of rows) {
+    const labels = (row ?? []).map((cell) => String(cell ?? "").trim());
+    const first = parseSheetDateHeader(labels[0]);
+    if (first?.day === 1 && !parseSheetDateHeader(labels[1])) {
+      return { header: first, labels };
+    }
+  }
+  return null;
+}
+
+export function findDateHeader(rows: unknown[][]): DateHeader | null {
+  return findDateHeaderRow(rows)?.header ?? null;
 }
 
 export function daysInMonth(year: number, month: number): number {

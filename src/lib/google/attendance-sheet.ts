@@ -12,12 +12,13 @@ import {
 import { toGoogleErrorMessage } from "@/lib/google/errors";
 import {
   ATTENDANCE_DAY1_COLUMN_INDEX,
-  findDateHeader,
+  findDateHeaderRow,
   type DateHeader,
 } from "@/lib/attendance/sheet-header";
 import { workHourRows, type NameCell } from "@/lib/attendance/names";
 import {
-  WEEKEND_HOLIDAY_HOURS_CELL,
+  WEEKEND_HOLIDAY_HOURS_COLUMN,
+  offDayColumnIndexes,
   weekendHolidayWorkHoursFormula,
 } from "@/lib/attendance/weekend-hours";
 import { spreadsheetUrlFromId } from "@/lib/settings/parse";
@@ -390,14 +391,14 @@ export async function loadAttendanceDirectory(
     }),
     sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${quoted}!AJ1:AK30`,
+      range: `${quoted}!AJ1:BN40`,
       valueRenderOption: "FORMATTED_VALUE",
     }),
   ]);
   const names = (nameGrid.data.values ?? [])
     .map((row) => String(row?.[0] ?? "").trim())
     .filter((name) => name.length > 0);
-  const header = findDateHeader(headerGrid.data.values ?? []);
+  const header = findDateHeaderRow(headerGrid.data.values ?? [])?.header ?? null;
   return {
     spreadsheetUrl: spreadsheetUrlFromId(spreadsheetId),
     sheetName: title,
@@ -470,9 +471,23 @@ async function writeCells(
   quoted: string,
   updates: CellUpdate[],
 ) {
+  const blanks = updates.filter((update) => update.value === "");
+  const values = updates.filter((update) => update.value !== "");
   const chunkSize = 200;
-  for (let index = 0; index < updates.length; index += chunkSize) {
-    const chunk = updates.slice(index, index + chunkSize);
+  for (let index = 0; index < blanks.length; index += chunkSize) {
+    const chunk = blanks.slice(index, index + chunkSize);
+    await sheets.spreadsheets.values.batchClear({
+      spreadsheetId,
+      requestBody: {
+        ranges: chunk.map(
+          (update) =>
+            `${quoted}!${columnLetter(update.columnIndex)}${update.rowNumber}`,
+        ),
+      },
+    });
+  }
+  for (let index = 0; index < values.length; index += chunkSize) {
+    const chunk = values.slice(index, index + chunkSize);
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
       requestBody: {
@@ -514,32 +529,54 @@ function formulaPeriod(
   return { year, month };
 }
 
+function yearFromSheetName(sheetName: string): number | null {
+  const match = sheetName.match(/(20\d{2})\s*年/);
+  return match ? Number(match[1]) : null;
+}
+
 async function writeWeekendHolidayHours(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   quoted: string,
+  sheetName: string,
   names: NameCell[],
-  header: DateHeader | null,
+  headerRow: { header: DateHeader; labels: string[] } | null,
   written: AttendanceWriteSheet[],
 ) {
-  const period = formulaPeriod(header, written);
-  if (!period) {
-    return;
-  }
-  const formula = weekendHolidayWorkHoursFormula(
-    workHourRows(names),
-    period.year,
-    period.month,
-  );
-  if (!formula) {
-    return;
-  }
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${quoted}!${WEEKEND_HOLIDAY_HOURS_CELL}`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [[formula]] },
+  const period = formulaPeriod(headerRow?.header ?? null, written);
+  const year = period?.year ?? yearFromSheetName(sheetName);
+  const labels = headerRow?.labels ?? [];
+  const columnIndexes =
+    year != null && labels.length > 0 ? offDayColumnIndexes(labels, year) : [];
+  const formulas = workHourRows(names).flatMap((row) => {
+    const formula = weekendHolidayWorkHoursFormula(row, columnIndexes);
+    return formula ? [{ row, formula }] : [];
   });
+  if (formulas.length === 0) {
+    return;
+  }
+  const chunkSize = 200;
+  for (let index = 0; index < formulas.length; index += chunkSize) {
+    const chunk = formulas.slice(index, index + chunkSize);
+    await sheets.spreadsheets.values.batchClear({
+      spreadsheetId,
+      requestBody: {
+        ranges: chunk.map(
+          (item) => `${quoted}!${WEEKEND_HOLIDAY_HOURS_COLUMN}${item.row}`,
+        ),
+      },
+    });
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: "USER_ENTERED",
+        data: chunk.map((item) => ({
+          range: `${quoted}!${WEEKEND_HOLIDAY_HOURS_COLUMN}${item.row}`,
+          values: [[item.formula]],
+        })),
+      },
+    });
+  }
 }
 
 export async function registerAttendanceSheets(
@@ -557,11 +594,12 @@ export async function registerAttendanceSheets(
       loadNameCells(sheets, spreadsheetId, quoted),
       sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${quoted}!AJ1:AK30`,
+        range: `${quoted}!AJ1:BN40`,
         valueRenderOption: "FORMATTED_VALUE",
       }),
     ]);
-    const header = findDateHeader(headerGrid.data.values ?? []);
+    const headerRow = findDateHeaderRow(headerGrid.data.values ?? []);
+    const header = headerRow?.header ?? null;
     const provisional = planAttendanceWrites({
       sheets: sheetsToWrite,
       names,
@@ -595,7 +633,15 @@ export async function registerAttendanceSheets(
       if (planned.updates.length > 0) {
         await writeCells(sheets, spreadsheetId, quoted, planned.updates);
       }
-      await writeWeekendHolidayHours(sheets, spreadsheetId, quoted, names, header, writtenSheets);
+      await writeWeekendHolidayHours(
+        sheets,
+        spreadsheetId,
+        quoted,
+        title,
+        names,
+        headerRow,
+        writtenSheets,
+      );
     }
     return {
       needsConfirm: false,
