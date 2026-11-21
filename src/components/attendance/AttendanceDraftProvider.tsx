@@ -18,18 +18,21 @@ import type { CompressedReceiptImage } from "@/lib/images/compress";
 import type {
   AttendanceAnalyzeResponse,
   AttendanceRegisterResult,
+  ReviewAttendance,
 } from "@/types/attendance";
 
 type AttendanceDraftContextValue = {
   image: CompressedReceiptImage | null;
   analysis: AttendanceAnalyzeResponse | null;
   results: AttendanceRegisterResult[] | null;
+  completedSheets: ReviewAttendance[];
   error: string | null;
   isAnalyzing: boolean;
   isRegistering: boolean;
   progress: { label: string; percent: number } | null;
   setAnalysis: Dispatch<SetStateAction<AttendanceAnalyzeResponse | null>>;
   setResults: Dispatch<SetStateAction<AttendanceRegisterResult[] | null>>;
+  setCompletedSheets: Dispatch<SetStateAction<ReviewAttendance[]>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setIsAnalyzing: Dispatch<SetStateAction<boolean>>;
   setIsRegistering: Dispatch<SetStateAction<boolean>>;
@@ -51,6 +54,7 @@ export function AttendanceDraftProvider({ children }: { children: ReactNode }) {
   const [image, setImageState] = useState<CompressedReceiptImage | null>(null);
   const [analysis, setAnalysis] = useState<AttendanceAnalyzeResponse | null>(null);
   const [results, setResults] = useState<AttendanceRegisterResult[] | null>(null);
+  const [completedSheets, setCompletedSheets] = useState<ReviewAttendance[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -66,6 +70,7 @@ export function AttendanceDraftProvider({ children }: { children: ReactNode }) {
     setImageState(next);
     setAnalysis(null);
     setResults(null);
+    setCompletedSheets([]);
     setError(null);
     setIsAnalyzing(false);
     setProgress(null);
@@ -87,12 +92,14 @@ export function AttendanceDraftProvider({ children }: { children: ReactNode }) {
       image,
       analysis,
       results,
+      completedSheets,
       error,
       isAnalyzing,
       isRegistering,
       progress,
       setAnalysis,
       setResults,
+      setCompletedSheets,
       setError,
       setIsAnalyzing,
       setIsRegistering,
@@ -105,6 +112,7 @@ export function AttendanceDraftProvider({ children }: { children: ReactNode }) {
       image,
       analysis,
       results,
+      completedSheets,
       error,
       isAnalyzing,
       isRegistering,

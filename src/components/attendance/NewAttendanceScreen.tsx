@@ -9,7 +9,8 @@ import { ProgressBar } from "@/components/receipts/ProgressBar";
 import { ReceiptCapture } from "@/components/receipts/ReceiptCapture";
 import { ReceiptPreview } from "@/components/receipts/ReceiptPreview";
 import { Button } from "@/components/ui/button";
-import { isAttendanceReady, toWriteSheet } from "@/lib/attendance/model";
+import { formatHours } from "@/lib/attendance/hours";
+import { attendanceTotals, isAttendanceReady, toWriteSheet } from "@/lib/attendance/model";
 import { compressReceiptImage } from "@/lib/images/compress";
 import { appFetch } from "@/lib/settings/client";
 import type {
@@ -28,12 +29,14 @@ export function NewAttendanceScreen() {
     image,
     analysis,
     results,
+    completedSheets,
     error,
     isAnalyzing,
     isRegistering,
     progress,
     setAnalysis,
     setResults,
+    setCompletedSheets,
     setError,
     setIsAnalyzing,
     setIsRegistering,
@@ -217,6 +220,12 @@ export function NewAttendanceScreen() {
 
       setProgress({ label: "スプレッドシートへ転記しています…", percent: 70 });
       const written = await postRegister(false, true);
+      const writtenIndexes = new Set(
+        written.results.filter((result) => result.ok).map((result) => result.sheetIndex),
+      );
+      setCompletedSheets(
+        analysis.sheets.filter((sheet) => writtenIndexes.has(sheet.sheetIndex)),
+      );
       setResults(written.results);
       setConfirming(null);
       const failed = written.results.filter((result) => !result.ok);
@@ -317,21 +326,44 @@ export function NewAttendanceScreen() {
 
       {results ? (
         <div className="space-y-3 rounded-lg border border-border p-4">
-          {results.map((result) => (
-            <div key={`${result.sheetIndex}-${result.employeeName}`} className="space-y-1 text-sm">
-              <p className="font-medium">
-                {result.employeeName || `勤務表 ${result.sheetIndex}`}
-                {result.ok ? " を転記しました" : " は転記できません"}
-              </p>
-              {result.ok && result.rowNumber ? (
-                <p>
-                  {result.rowNumber}行目から、{result.writtenDays}日分
-                  {result.clearedDays > 0 ? `、${result.clearedDays}日分を空欄` : ""}
+          {results.map((result) => {
+            const sheet = result.ok
+              ? completedSheets.find((item) => item.sheetIndex === result.sheetIndex)
+              : undefined;
+            const totals = sheet
+              ? attendanceTotals(sheet.days, sheet.year, sheet.month)
+              : null;
+            return (
+              <div key={`${result.sheetIndex}-${result.employeeName}`} className="space-y-1 text-sm">
+                <p className="font-medium">
+                  {result.employeeName || `勤務表 ${result.sheetIndex}`}
+                  {result.ok ? " を転記しました" : " は転記できません"}
                 </p>
-              ) : null}
-              {result.error ? <p className="text-destructive">{result.error}</p> : null}
-            </div>
-          ))}
+                {result.ok && result.rowNumber ? (
+                  <p>
+                    {result.rowNumber}行目から、{result.writtenDays}日分
+                    {result.clearedDays > 0 ? `、${result.clearedDays}日分を空欄` : ""}
+                  </p>
+                ) : null}
+                {totals ? (
+                  <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted px-3 py-2">
+                    <p>総勤務日数 {totals.workDayCount}日</p>
+                    <p>総勤務時間 {formatHours(totals.totalHours)}時間</p>
+                    <p className="col-span-2">
+                      土日祝総勤務時間{" "}
+                      {totals.weekendHolidayHours == null
+                        ? "—"
+                        : `${formatHours(totals.weekendHolidayHours)}時間`}
+                    </p>
+                    <p className="col-span-2">
+                      交通費合計 {totals.transportYen.toLocaleString("ja-JP")}円
+                    </p>
+                  </div>
+                ) : null}
+                {result.error ? <p className="text-destructive">{result.error}</p> : null}
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

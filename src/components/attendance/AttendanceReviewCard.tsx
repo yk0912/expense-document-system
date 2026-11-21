@@ -26,12 +26,19 @@ function clockValue(value: string | null): string {
   return value ?? "";
 }
 
-function parseOptionalNumber(value: string): number | null {
-  if (!value.trim()) {
-    return null;
+const ATTENDANCE_YEAR_MIN = 2026;
+const ATTENDANCE_YEAR_MAX = 2030;
+
+function attendanceYearOptions(year: number | null): number[] {
+  const options: number[] = [];
+  for (let value = ATTENDANCE_YEAR_MIN; value <= ATTENDANCE_YEAR_MAX; value += 1) {
+    options.push(value);
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (year != null && Number.isInteger(year) && !options.includes(year)) {
+    options.push(year);
+    options.sort((left, right) => left - right);
+  }
+  return options;
 }
 
 function DecimalField({
@@ -315,17 +322,23 @@ export function AttendanceReviewCard({
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1">
           <span className="text-xs text-muted-foreground">年</span>
-          <Input
-            className="h-11"
-            inputMode="numeric"
+          <select
+            className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base"
             value={sheet.year ?? ""}
             onChange={(event) =>
               onChange({
                 ...sheet,
-                year: parseOptionalNumber(event.target.value),
+                year: event.target.value ? Number(event.target.value) : null,
               })
             }
-          />
+          >
+            <option value="">選択</option>
+            {attendanceYearOptions(sheet.year).map((year) => (
+              <option key={year} value={year}>
+                {year}年
+              </option>
+            ))}
+          </select>
         </label>
         <label className="space-y-1">
           <span className="text-xs text-muted-foreground">月</span>
